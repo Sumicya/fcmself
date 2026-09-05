@@ -40,10 +40,10 @@ jobs:
       # 构建失败时需要往 PR 贴日志评论
       pull-requests: write
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: set up JDK 21
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v6
       with:
         java-version: '21'
         distribution: 'temurin'
@@ -75,7 +75,7 @@ jobs:
         mv debug/app-debug.apk debug/fcmself-${{ env.VERSION_NAME }}-debug-signed.apk
 
     - name: Upload apks
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: fcmself-${{ env.VERSION_NAME }}
         path: |
