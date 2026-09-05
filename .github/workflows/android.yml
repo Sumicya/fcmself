@@ -1,7 +1,28 @@
+# 建议的 CI 配置（需要手动覆盖到 .github/workflows/android.yml）
+#
+# 为什么单独放一个文件：本次重构分支使用的 GitHub App 没有 `workflows` 权限，
+# 推送 .github/workflows/* 会被远端拒绝
+# （"refusing to allow a GitHub App to create or update workflow ... without workflows permission"）。
+#
+# 用法：
+#   cp docs/android.yml.suggested .github/workflows/android.yml
+#
+# 相对现有 workflow 的改动（前三条是**必须**的，否则 master 上 CI 会在 Rename 步骤失败）：
+#   1. 单变体：产物是 app-release-unsigned-signed.apk，不再有 app-full-/app-lite- 前缀，
+#      原来的两条 mv 会直接报 "No such file or directory"；这里改成按 *-signed.apk 通配匹配
+#   2. APK 改名 fcmfix-*.apk -> fcmself-*.apk（applicationId 已改）
+#   3. LSPosed 模块仓库路径 com.kooritea.fcmfix -> sumicya.fcmself
+#   4. 增加 pull_request 触发，合并前就能跑 CI（现在只有 push 到 master 才跑）
+#   5. 构建失败时把日志尾部写进 GITHUB_STEP_SUMMARY（Actions 日志文件需网页下载，
+#      summary 可以直接通过 API 读取，便于排查）
+#   6. 发布类步骤加 if: github.event_name == 'push'，避免 PR 触发时误建 Release
+
 name: Android CI
 
 on:
   push:
+    branches: [ "master" ]
+  pull_request:
     branches: [ "master" ]
 
 jobs:
@@ -21,16 +42,30 @@ jobs:
       run: chmod +x gradlew
 
     - name: Retrieve version name
-      run: echo VERSION_NAME=$(date "+%Y%m%d")_$(echo ${{ github.event.head_commit.id }} | head -c 7) >> $GITHUB_ENV
+      run: echo "VERSION_NAME=$(date "+%Y%m%d")_$(echo ${{ github.sha }} | head -c 7)" >> $GITHUB_ENV
 
     - name: Retrieve version code
-      run: echo VERSION_CODE=$(cat ${{ github.workspace }}/app/build.gradle | grep "versionCode" | grep -Eo "[0-9]+") >> $GITHUB_ENV
+      run: echo "VERSION_CODE=$(cat ${{ github.workspace }}/app/build.gradle | grep "versionCode" | grep -Eo "[0-9]+")" >> $GITHUB_ENV
 
     - name: Set version name
       run: sed -i "s/versionName \".*\"/versionName \"${{ env.VERSION_NAME }}\"/" ${{ github.workspace }}/app/build.gradle
 
     - name: Build with Gradle
-      run: ./gradlew assembleRelease
+      shell: bash
+      run: |
+        set -o pipefail
+        ./gradlew assembleRelease 2>&1 | tee build.log
+
+    - name: Dump build log tail on failure
+      if: failure()
+      shell: bash
+      run: |
+        {
+          echo '### Gradle build log (tail)'
+          echo '```'
+          tail -n 150 build.log
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Setup build tool version variable
       shell: bash
@@ -51,28 +86,28 @@ jobs:
         BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOL_VERSION }}
 
     - name: Rename
+      shell: bash
       run: |
         cd ${{ github.workspace }}/app/build/outputs/apk/release
-        mv app-full-release-unsigned-signed.apk fcmfix-full-${{ env.VERSION_NAME }}.apk
-        mv app-lite-release-unsigned-signed.apk fcmfix-lite-${{ env.VERSION_NAME }}.apk
+        SIGNED_APK=$(ls *-signed.apk | head -n 1)
+        mv "$SIGNED_APK" fcmself-${{ env.VERSION_NAME }}.apk
 
     - name: Upload built apk
       uses: actions/upload-artifact@v4
       with:
         name: release
         path: |
-          ${{ github.workspace }}/app/build/outputs/apk/release/fcmfix-full-${{ env.VERSION_NAME }}.apk
-          ${{ github.workspace }}/app/build/outputs/apk/release/fcmfix-lite-${{ env.VERSION_NAME }}.apk
+          ${{ github.workspace }}/app/build/outputs/apk/release/fcmself-${{ env.VERSION_NAME }}.apk
 
     - name: Release
+      if: github.event_name == 'push'
       uses: softprops/action-gh-release@v2
       with:
         name: "Auto Release ${{ env.VERSION_NAME }}"
         tag_name: ${{ env.VERSION_CODE }}-${{ env.VERSION_NAME }}
         token: "${{ secrets.TOKEN }}"
         files: |
-          ${{ github.workspace }}/app/build/outputs/apk/release/fcmfix-full-${{ env.VERSION_NAME }}.apk
-          ${{ github.workspace }}/app/build/outputs/apk/release/fcmfix-lite-${{ env.VERSION_NAME }}.apk
+          ${{ github.workspace }}/app/build/outputs/apk/release/fcmself-${{ env.VERSION_NAME }}.apk
 
     - uses: dorny/paths-filter@v3
       id: changes
@@ -82,12 +117,13 @@ jobs:
             - 'app/build.gradle'
 
     - name: Release lsposed module repository
-      if: steps.changes.outputs.src == 'true'
+      if: github.event_name == 'push' && steps.changes.outputs.src == 'true'
       uses: softprops/action-gh-release@v2
       with:
         name: "Auto Release ${{ env.VERSION_NAME }}"
         tag_name: ${{ env.VERSION_CODE }}-${{ env.VERSION_NAME }}
-        repository: Xposed-Modules-Repo/com.kooritea.fcmfix
+        repository: Xposed-Modules-Repo/sumicya.fcmself
         token: "${{ secrets.TOKEN_CLASSIC }}"
         files: |
-          ${{ github.workspace }}/app/build/outputs/apk/release/fcmfix-full-${{ env.VERSION_NAME }}.apk
+          ${{ github.workspace }}/app/build/outputs/apk/release/fcmself-${{ env.VERSION_NAME }}.apk
+
