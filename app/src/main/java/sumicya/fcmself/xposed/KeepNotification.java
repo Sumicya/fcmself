@@ -27,8 +27,9 @@ import sumicya.fcmself.libxposed.XposedHelpers;
  * - Android 10 (API 29) 到 Android 15 (API 35) 及以上
  * - 自动适配不同版本的方法签名变化
  *
- * 配置项：
- * - disableAutoCleanNotification: 启用后阻止系统自动清除通知
+ * 生效条件（无配置项，对所有 FCM 目标应用始终生效）：
+ * 取消原因为 {@code REASON_PACKAGE_CHANGED}，或 ColorOS 15 / OxygenOS 15 的
+ * {@value #REASON_COS_OOS_1} / {@value #REASON_COS_OOS_2}。其它取消原因照常放行。
  */
 public class KeepNotification extends XposedModule {
 
