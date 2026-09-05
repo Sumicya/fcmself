@@ -65,7 +65,8 @@ jobs:
       shell: bash
       run: |
         set -o pipefail
-        ./gradlew assembleRelease assembleDebug 2>&1 | tee build.log
+        # test 放在最前：参数下标解析的单元测试不通过就不必继续构建
+        ./gradlew test assembleRelease assembleDebug 2>&1 | tee build.log
 
     - name: Rename artifacts
       shell: bash
@@ -73,6 +74,11 @@ jobs:
         cd ${{ github.workspace }}/app/build/outputs/apk
         mv release/app-release-unsigned.apk release/fcmself-${{ env.VERSION_NAME }}-unsigned.apk
         mv debug/app-debug.apk debug/fcmself-${{ env.VERSION_NAME }}-debug-signed.apk
+
+    - name: Run lint
+      shell: bash
+      # 放在上传之后：lint 报问题时 APK 已经产出，不会因为静态检查拿不到包
+      run: ./gradlew lint
 
     - name: Verify R8 kept the Xposed entry class
       shell: bash

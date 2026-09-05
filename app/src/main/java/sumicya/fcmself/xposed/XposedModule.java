@@ -205,7 +205,9 @@ public abstract class XposedModule {
      * <p>直接用框架 {@link Notification.Builder}（渠道构造器需 API 26，本模块 minSdk 29），
      * 不为一个通知把整个 androidx.core 打进 APK。模块没有界面，通知不带点击意图。
      */
-    @SuppressLint("MissingPermission")
+    // 通知是从被 Hook 的宿主进程（system_server / GMS）的 context 发的，归属宿主 UID，
+    // 权限由宿主自己持有——本模块声明 POST_NOTIFICATIONS 不起作用，故一并抑制这两条 lint
+    @SuppressLint({"MissingPermission", "NotificationPermission"})
     protected void sendNotification(String title, String content) {
         printLog(title, false);
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
