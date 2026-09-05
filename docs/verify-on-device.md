@@ -1,13 +1,18 @@
 # 真机验证清单
 
 模块没有界面，行为全部体现在日志里。所有日志的 tag 固定为 `FcmSelf`（见 `FcmselfLog.TAG`），
-每条日志同时写入 `Log.d` 和 LSPosed 日志（`XposedBridge.log`），行格式为：
+每条日志同时写入 `Log.d` 和 LSPosed 日志（`FcmselfLog` 直接调 `XposedInterface.log`），行格式为：
 
 ```
 [fcmself] [<进程身份>]<内容>
 ```
 
 进程身份：system_server 是 `android`，GMS 是 `com.google.android.gms`。
+
+> **本次构建（`35c8495` 起）重写了 hook 安装层**：libxposed 兼容层
+> （`XposedBridge`/`XposedHelpers`/`XC_MethodHook`）已删除，所有 Hook 直接调用
+> libxposed API。功能逻辑没变，但每个 Hook 点的安装代码都动过，
+> 第 1–6 节建议整体重跑一遍。
 
 ## 0. 准备
 
@@ -58,16 +63,22 @@ adb logcat -s FcmSelf
 broadcastIntentLocked hook 位置查找失败，fcmself将不会工作。
 ```
 
-## 3. 自启动限制（按 ROM，命中一个就够）
+## 3. 自启动限制（OPPO / OnePlus）
+
+`AutoStartFix` 只 Hook ColorOS / OxygenOS 的
+`OplusAppStartupManager.shouldPreventSendReceiverReal`，**成功时不打日志**，
+所以这一节看的是"没有失败行"：
 
 ```
-Allow Auto Start: <包名>
-[<action>]checkApplicationAutoStart package_name: <包名>
-SmartPowerService.shouldInterceptBroadcast package_name: <包名>
+No Such Method com.android.server.am.OplusAppStartupManager.shouldPreventSendReceiverReal
 ```
 
-`No Such Method ...` / `No Such Class ...` 表示这台设备的 ROM 没有对应 Hook 点，**属正常**，
-不需要处理。
+出现这行 = 这台设备没有该 Hook 点（非 ColorOS/OxygenOS，或版本不同），**属正常**，
+其它模块不受影响；没有这行且第 2 节的通知能正常弹出，即视为生效。
+
+MIUI / HyperOS 的自启动 Hook 点已按需求移除（对应日志
+`Allow Auto Start` / `checkApplicationAutoStart` / `SmartPowerService.shouldInterceptBroadcast`
+不会再出现），小米设备目前不在支持范围内。
 
 ## 4. 通知不被自动清理
 
