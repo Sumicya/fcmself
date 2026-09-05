@@ -1,6 +1,5 @@
 package sumicya.fcmself.xposed;
 
-import android.app.AppOpsManager;
 import android.content.Intent;
 import android.os.Build;
 
@@ -30,12 +29,17 @@ import sumicya.fcmself.util.XposedUtils;
 public class BroadcastFix extends XposedModule {
 
     /**
-     * AOSP {@code AppOpsManager.OP_POST_NOTIFICATION}（值 11，@hide 常量无法直接引用；
+     * AOSP {@code AppOpsManager.OP_NONE}（值 -1）。该常量是 @hide，公开 SDK 里没有，
+     * 只能自己定义。表示 broadcastIntentLocked 的调用方未指定 appOp。
+     */
+    private static final int APP_OP_NONE = -1;
+
+    /**
+     * AOSP {@code AppOpsManager.OP_POST_NOTIFICATION}（值 11，同为 @hide 常量；
      * 已对照 AOSP android-9.0.0_r34 与 prebuilts android-29 核实）。
      *
-     * <p>broadcastIntentLocked 的 appOp 参数为 {@link AppOpsManager#OP_NONE}（-1）时表示
-     * 调用方未指定，此时补成 OP_POST_NOTIFICATION，让这条广播按"投递通知"来对待，
-     * 从而允许送达已停止的应用。
+     * <p>调用方未指定 appOp（{@link #APP_OP_NONE}）时补成这个值，让这条广播按
+     * "投递通知"来对待，从而允许送达已停止的应用。
      */
     private static final int APP_OP_POST_NOTIFICATION = 11;
 
@@ -175,7 +179,7 @@ public class BroadcastFix extends XposedModule {
                     String target = targetOf(intent);
                     if (hasTargetPackage(target)) {
                         int appOp = (Integer) methodHookParam.args[finalAppOp_args_index];
-                        if (appOp == AppOpsManager.OP_NONE) {
+                        if (appOp == APP_OP_NONE) {
                             methodHookParam.args[finalAppOp_args_index] = APP_OP_POST_NOTIFICATION;
                         }
                         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
