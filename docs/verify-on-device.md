@@ -47,16 +47,17 @@ adb logcat -s FcmSelf
 然后让服务端推一条 FCM 消息，期望日志：
 
 ```
-[fcmself] [android]Send Forced Start Broadcast: <包名>
+[fcmself] [android]Add FLAG_INCLUDE_STOPPED_PACKAGES: <包名>
 ```
 
-出现这行且通知正常弹出 = 核心功能生效。
+出现这行且通知正常弹出 = 核心功能生效。（这行是给正在发送的那条广播补上
+`FLAG_INCLUDE_STOPPED_PACKAGES`，不是额外发一条广播。）
 
 装了 IceBox 且目标应用被冻结时，会先解冻再补发：
 
 ```
 [fcmself] [android]Waiting for IceBox to activate the app: <包名>
-[fcmself] [android]Send Forced Start Broadcast: <包名>
+[fcmself] [android]Resend broadcast after IceBox activated: <包名>
 ```
 
 解冻超时（30 秒）则是：`Waiting for IceBox to activate the app timed out: <包名>`。

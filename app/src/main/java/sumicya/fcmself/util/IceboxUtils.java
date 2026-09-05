@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.os.SystemClock;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Process;
@@ -18,6 +19,11 @@ public class IceboxUtils extends BroadcastReceiver {
     public final static int REQUEST_CODE = 0x2333;
     public final static String PACKAGE_NAME = "com.catchingnow.icebox";
     public final static String SDK_PERMISSION = PACKAGE_NAME + ".SDK";
+
+    /** isInstalled 结果缓存有效期（10 分钟） */
+    private static final long INSTALLED_CACHE_TTL_MS = 10 * 60 * 1000L;
+    private static volatile Boolean sInstalledCache;
+    private static volatile long sInstalledCacheAt;
     private static final Uri PERMISSION_URI = Uri.parse("content://" + PACKAGE_NAME + ".SDK");
     private static final Uri NO_PERMISSION_URI = Uri.parse("content://" + PACKAGE_NAME + ".STATE");
     private static final String TAG = "IceboxUtils";
@@ -44,14 +50,29 @@ public class IceboxUtils extends BroadcastReceiver {
         }
     }
 
-    /** IceBox 是否已安装：没装就不必走"解冻 + 等待 + 补发广播"流程。 */
+    /**
+     * IceBox 是否已安装：没装就不必走"解冻 + 等待 + 补发广播"流程。
+     *
+     * <p>每条 FCM 广播都会问一次，而 {@code getPackageInfo} 是一次 binder 调用，因此把结果
+     * 缓存 10 分钟。代价是安装/卸载 IceBox 后最长要等这个 TTL（或重启 system_server）才被
+     * 感知——对"是否装了 IceBox"这种几乎不变的条件可以接受。
+     */
     public static boolean isInstalled(Context context) {
+        Boolean cached = sInstalledCache;
+        long now = SystemClock.elapsedRealtime();
+        if (cached != null && now - sInstalledCacheAt < INSTALLED_CACHE_TTL_MS) {
+            return cached;
+        }
+        boolean installed;
         try {
             context.getPackageManager().getPackageInfo(PACKAGE_NAME, 0);
-            return true;
+            installed = true;
         } catch (Throwable e) {
-            return false;
+            installed = false;
         }
+        sInstalledCache = installed;
+        sInstalledCacheAt = now;
+        return installed;
     }
 
     public static boolean isAppEnabled(Context context, String packageName) {

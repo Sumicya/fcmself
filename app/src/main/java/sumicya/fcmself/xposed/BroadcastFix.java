@@ -196,7 +196,7 @@ public class BroadcastFix extends XposedModule {
                             methodHookParam.setResult(false);
                             new Thread(() -> resumeAfterIceboxActivated(methodHookParam, method, target)).start();
                         } else {
-                            printLog("Send Forced Start Broadcast: " + target, true);
+                            printLog("Add FLAG_INCLUDE_STOPPED_PACKAGES: " + target, true);
                         }
                         // cos15 解冻 OplusProxy
                         OplusProxyFix.unfreeze(target);
@@ -219,18 +219,18 @@ public class BroadcastFix extends XposedModule {
             try {
                 Thread.sleep(100);
             } catch (Throwable e) {
-                printLog("Send Forced Start Broadcast Error: " + target + " " + e.getMessage(), true);
+                printLog("Waiting for IceBox interrupted: " + target + " " + e.getMessage(), true);
             }
         }
         try {
             if (IceboxUtils.isAppEnabled(context, target)) {
-                printLog("Send Forced Start Broadcast: " + target, true);
+                printLog("Resend broadcast after IceBox activated: " + target, true);
             } else {
                 printLog("Waiting for IceBox to activate the app timed out: " + target, true);
             }
             XposedBridge.invokeOriginalMethod(methodHookParam.method, methodHookParam.thisObject, methodHookParam.args);
         } catch (Throwable e) {
-            printLog("Send Forced Start Broadcast Error: " + target + " " + e.getMessage(), true);
+            printLog("Resend broadcast failed: " + target + " " + e.getMessage(), true);
         }
     }
 }
