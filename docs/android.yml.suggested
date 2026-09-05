@@ -74,6 +74,24 @@ jobs:
         mv release/app-release-unsigned.apk release/fcmself-${{ env.VERSION_NAME }}-unsigned.apk
         mv debug/app-debug.apk debug/fcmself-${{ env.VERSION_NAME }}-debug-signed.apk
 
+    - name: Verify R8 kept the Xposed entry class
+      shell: bash
+      run: |
+        # LSPosed 按 META-INF/xposed/java_init.list 里的类名字符串加载入口类。
+        # R8 若把它改名或裁剪，构建仍会成功，但模块会静默不加载——所以在 CI 里直接查 dex。
+        python3 - <<'PY'
+        import glob, sys, zipfile
+        apk = sorted(glob.glob('app/build/outputs/apk/release/*.apk'))[0]
+        with zipfile.ZipFile(apk) as z:
+            dex = b''.join(z.read(n) for n in z.namelist()
+                           if n.startswith('classes') and n.endswith('.dex'))
+        ok = b'Lsumicya/fcmself/XposedMain;' in dex
+        print(f'{apk}: 入口类 sumicya.fcmself.XposedMain '
+              + ('已保留' if ok else '被 R8 改名或裁剪'))
+        print(f'dex 合计 {len(dex)} 字节')
+        sys.exit(0 if ok else 1)
+        PY
+
     - name: Upload apks
       uses: actions/upload-artifact@v7
       with:
