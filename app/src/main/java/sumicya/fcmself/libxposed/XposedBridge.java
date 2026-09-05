@@ -47,13 +47,18 @@ public final class XposedBridge {
         xposedInterface = xposed;
     }
 
-    /** 日志同时写入 logcat 与 LSPosed 日志（框架尚未初始化时只写 logcat）。 */
+    /**
+     * 日志同时写入 logcat 与 LSPosed 框架日志（框架尚未初始化时只写 logcat）。
+     *
+     * <p>框架侧签名是 {@code XposedInterface.log(int priority, String tag, String msg)}
+     * （priority 取 android.util.Log 的常量），没有单参数的 log(String)。
+     */
     public static void log(String text) {
         Log.i(LOG_TAG, text);
         XposedInterface xposed = xposedInterface;
         if (xposed != null) {
             try {
-                xposed.log(text);
+                xposed.log(Log.INFO, LOG_TAG, text);
             } catch (Throwable ignored) {
                 // 框架日志不可用时忽略，logcat 里已经有一份
             }
