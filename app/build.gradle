@@ -28,10 +28,24 @@ android {
     lint {
         checkReleaseBuilds = false
     }
+    testOptions {
+        // 单元测试里若碰到 android.jar 的桩方法，返回默认值而不是抛 "Stub!"
+        unitTests.returnDefaultValues = true
+    }
 }
 
 dependencies {
     // 只依赖 LSPosed 的 API（编译期），运行期由框架提供；
     // 界面与 androidx 依赖已随设置界面一起移除，APK 里只有本模块自己的类
     compileOnly 'io.github.libxposed:api:101.0.1'
+
+    // 单元测试只覆盖不依赖 Android 的纯逻辑（参数下标解析），因此 JUnit 就够，
+    // 不需要 Robolectric / androidx.test
+    testImplementation 'junit:junit:4.13.2'
+}
+
+// MethodArgs.byName() 依赖真实参数名，单元测试要靠它验证兜底路径，
+// 所以编译时保留参数名（对 release 产物无副作用，只是类文件略大）
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << '-parameters'
 }
