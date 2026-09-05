@@ -4,11 +4,11 @@ import android.content.pm.PackageManager;
 import android.os.SystemClock;
 import android.os.WorkSource;
 
-import sumicya.fcmself.libxposed.XC_MethodHook;
-import sumicya.fcmself.libxposed.XC_MethodReplacement;
-import sumicya.fcmself.libxposed.XposedHelpers;
-import sumicya.fcmself.util.XposedUtils;
+import sumicya.fcmself.util.Hooks;
+import sumicya.fcmself.util.Reflect;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -76,26 +76,29 @@ public class OplusProxyFix extends XposedModule {
      * 当检测到 FCM 相关广播时，返回 NOT_INCLUDE 以绕过代理检查
      */
     private void startHookOplusProxyBroadcast() throws Exception {
-        Class<?> oplusProxyBroadcastClass = XposedHelpers.findClass(
+        Class<?> oplusProxyBroadcastClass = Reflect.findClass(
             "com.android.server.am.OplusProxyBroadcast", classLoader);
-        Class<?> resultEnum = XposedHelpers.findClass(
+        Class<?> resultEnum = Reflect.findClass(
             "com.android.server.am.OplusProxyBroadcast$RESULT", classLoader);
-        Object notIncludeValue = XposedHelpers.getStaticObjectField(resultEnum, "NOT_INCLUDE");
+        Object notIncludeValue = Reflect.getStaticObjectField(resultEnum, "NOT_INCLUDE");
 
         // ColorOS 15 测试：shouldProxy 有 8 个参数
-        XposedUtils.findAndHookMethod(oplusProxyBroadcastClass, "shouldProxy", 8, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                String callingPkg = (String) param.args[3];
-                String pkgName = (String) param.args[5];
-                String action = (String) param.args[6];
-                
-                // 示例：caller=com.google.android.gms, action=com.google.android.c2dm.intent.RECEIVE
-                if (isFCMAction(action) && hasTargetPackage(pkgName)) {
-                    logBypassThrottled(pkgName, callingPkg, action);
-                    param.setResult(notIncludeValue);
-                }
+        Method shouldProxy = Reflect.findMethodByParamCount(oplusProxyBroadcastClass, "shouldProxy", 8);
+        if (shouldProxy == null) {
+            throw new NoSuchMethodError(oplusProxyBroadcastClass.getName() + "#shouldProxy");
+        }
+        Hooks.hook(api, shouldProxy, chain -> {
+            String callingPkg = (String) chain.getArg(3);
+            String pkgName = (String) chain.getArg(5);
+            String action = (String) chain.getArg(6);
+
+            // 示例：caller=com.google.android.gms, action=com.google.android.c2dm.intent.RECEIVE
+            if (isFCMAction(action) && hasTargetPackage(pkgName)) {
+                logBypassThrottled(pkgName, callingPkg, action);
+                // 不调用 chain.proceed()，直接返回 NOT_INCLUDE = 这条广播不走代理
+                return notIncludeValue;
             }
+            return chain.proceed();
         });
     }
 
@@ -103,19 +106,18 @@ public class OplusProxyFix extends XposedModule {
      * Hook OplusProxyWakeLock 构造函数，保存实例引用供后续使用
      */
     private void startHookOplusProxyWakeLock() throws Exception {
-        Class<?> oplusWakelockClass = XposedHelpers.findClass(
+        Class<?> oplusWakelockClass = Reflect.findClass(
             "com.android.server.power.OplusProxyWakeLock", classLoader);
+        // 不指定参数类型：所有构造器同等匹配，取声明顺序最后一个（与移除兼容层前的行为一致）
+        Constructor<?> constructor = Reflect.findConstructorMostMatch(oplusWakelockClass);
 
-        XposedUtils.findAndHookConstructorAnyParam(oplusWakelockClass, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if (s_oplusProxyWakeLock != null) {
-                    printLog("warn: OplusProxyWakeLock constructed multiple times!");
-                    return;
-                }
-                s_oplusProxyWakeLock = param.thisObject;
-                printLog("OplusProxyWakeLock instance captured");
+        Hooks.hookAfter(api, constructor, (chain, error) -> {
+            if (s_oplusProxyWakeLock != null) {
+                printLog("warn: OplusProxyWakeLock constructed multiple times!");
+                return;
             }
+            s_oplusProxyWakeLock = chain.getThisObject();
+            printLog("OplusProxyWakeLock instance captured");
         });
     }
 
@@ -176,13 +178,13 @@ public class OplusProxyFix extends XposedModule {
         if (!s_signatureDetected) {
             try {
                 // 尝试 4 参数版本
-                XposedHelpers.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
+                Reflect.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
                     uid, ws, tag, "FcmSelf");
                 s_useFourParams = true;
                 printLog("unfreezeIfNeed using 4 params: uid=" + uid + ", pkg=" + target);
             } catch (Throwable e) {
                 // 降级到 3 参数版本
-                XposedHelpers.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
+                Reflect.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
                     uid, ws, tag);
                 s_useFourParams = false;
                 printLog("unfreezeIfNeed using 3 params: uid=" + uid + ", pkg=" + target);
@@ -192,10 +194,10 @@ public class OplusProxyFix extends XposedModule {
             // 使用已缓存的参数配置
             try {
                 if (s_useFourParams) {
-                    XposedHelpers.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
+                    Reflect.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
                         uid, ws, tag, "FcmSelf");
                 } else {
-                    XposedHelpers.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
+                    Reflect.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
                         uid, ws, tag);
                 }
                 printLog("unfreeze: " + target + ", uid=" + uid);
@@ -209,23 +211,21 @@ public class OplusProxyFix extends XposedModule {
      * 阻止 Hans 注册 GMS 限制观察者
      */
     private void startHookRegisterGmsRestrictObserver() {
-        XposedHelpers.findAndHookMethod(
-            "com.android.server.hans.scene.OplusBgSceneManager", 
-            classLoader, 
-            "registerGmsRestrictObserver", 
-            XC_MethodReplacement.DO_NOTHING);
+        hookNoOp("com.android.server.hans.scene.OplusBgSceneManager", "registerGmsRestrictObserver");
         printLog("registerGmsRestrictObserver hooked");
+    }
+
+    /** 把 {@code className#methodName()}（无参）替换成空实现：原方法完全不执行，返回 null。 */
+    private void hookNoOp(String className, String methodName) {
+        Method method = Reflect.findMethodExact(Reflect.findClass(className, classLoader), methodName);
+        Hooks.hook(api, method, chain -> null);
     }
 
     /**
      * 阻止 Hans 更新 GMS 限制状态
      */
     private void startHookUpdateGmsRestrict() {
-        XposedHelpers.findAndHookMethod(
-            "com.android.server.hans.scene.OplusBgSceneManager", 
-            classLoader, 
-            "updateGmsRestrict", 
-            XC_MethodReplacement.DO_NOTHING);
+        hookNoOp("com.android.server.hans.scene.OplusBgSceneManager", "updateGmsRestrict");
         printLog("updateGmsRestrict hooked");
     }
 
@@ -233,12 +233,11 @@ public class OplusProxyFix extends XposedModule {
      * 阻止 GMS 限制检查
      */
     private void startHookIsGoogleRestricInfoOn() {
-        XposedHelpers.findAndHookMethod(
-            "com.android.server.am.OplusAppStartupManager$OplusStartupStrategy", 
-            classLoader, 
-            "isGoogleRestricInfoOn", 
-            int.class, 
-            XC_MethodReplacement.returnConstant(false));
+        Method method = Reflect.findMethodExact(Reflect.findClass(
+                "com.android.server.am.OplusAppStartupManager$OplusStartupStrategy", classLoader),
+                "isGoogleRestricInfoOn", int.class);
+        // 不调用 chain.proceed()，恒定返回 false
+        Hooks.hook(api, method, chain -> false);
         printLog("isGoogleRestricInfoOn hooked");
     }
 }
