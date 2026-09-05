@@ -63,7 +63,7 @@ public class MiuiLocalNotificationFix extends XposedModule {
                     @Override
                     protected void afterHookedMethod(MethodHookParam methodHookParam) {
                         // 检查是否是目标应用，如果是则强制允许/拒绝通知
-                        if(targetIsAllow((String)methodHookParam.args[3])){
+                        if(hasTargetPackage((String)methodHookParam.args[3])){
                             // 根据原方法名决定返回值：
                             // isAllowLocalNotification -> 返回 true (允许)
                             // isDeniedLocalNotification -> 返回 false (不拒绝)

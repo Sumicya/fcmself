@@ -34,9 +34,6 @@ dependencies {
     implementation 'io.github.libxposed:interface:101.0.0'
     implementation 'io.github.libxposed:service:101.0.0'
     implementation fileTree(dir: "libs", include: ["*.jar"])
-    // ContextCompat / NotificationCompat 等
+    // 通知/权限检查等（NotificationCompat、ContextCompat）
     implementation 'androidx.core:core:1.7.0'
-    // 设置界面（白名单管理）
-    implementation 'androidx.appcompat:appcompat:1.5.1'
-    implementation 'androidx.recyclerview:recyclerview:1.2.1'
 }

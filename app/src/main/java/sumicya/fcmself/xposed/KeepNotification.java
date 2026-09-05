@@ -104,9 +104,8 @@ public class KeepNotification extends XposedModule {
                 if (!FcmselfConfig.isBootComplete()) {
                     return;
                 }
-                // 启用了"禁用自动清理通知"且是白名单目标应用
-                if (getBooleanConfig(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false)
-                        && targetIsAllow((String) param.args[finalPkgArgsIndex])) {
+                // 目标包名可解析即介入：阻止系统因应用包变化自动清理其通知
+                if (hasTargetPackage((String) param.args[finalPkgArgsIndex])) {
                     int reason = (int) param.args[finalReasonArgsIndex];
 
                     // 原因是应用包变化（如更新/卸载）：阻止取消通知

@@ -150,13 +150,13 @@ public class BroadcastFix extends XposedModule {
                 // 介入条件：Intent未包含唤醒停止的pkg 且 Intent是FCM
                 if ((intent.getFlags() & Intent.FLAG_INCLUDE_STOPPED_PACKAGES) == 0 && isFCMIntent(intent)) {
                     String target = targetOf(intent);
-                    if (targetIsAllow(target)) {
+                    if (hasTargetPackage(target)) {
                         int appOp = (Integer) methodHookParam.args[finalAppOp_args_index];
                         if (appOp == -1) {
                             methodHookParam.args[finalAppOp_args_index] = 11;
                         }
                         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-                        if (getBooleanConfig("includeIceBoxDisableApp", false) && !IceboxUtils.isAppEnabled(context, target)) {
+                        if (IceboxUtils.isInstalled(context) && !IceboxUtils.isAppEnabled(context, target)) {
                             // 目标被 IceBox 冻结：先解冻等待，再重新走原方法补发广播
                             printLog("Waiting for IceBox to activate the app: " + target, true);
                             methodHookParam.setResult(false);

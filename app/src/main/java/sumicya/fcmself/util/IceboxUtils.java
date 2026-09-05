@@ -11,8 +11,6 @@ import android.os.Bundle;
 import android.os.Process;
 import android.util.Log;
 
-import androidx.annotation.RequiresPermission;
-import androidx.core.content.ContextCompat;
 
 import java.util.Objects;
 
@@ -46,6 +44,16 @@ public class IceboxUtils extends BroadcastReceiver {
         }
     }
 
+    /** IceBox 是否已安装：没装就不必走"解冻 + 等待 + 补发广播"流程。 */
+    public static boolean isInstalled(Context context) {
+        try {
+            context.getPackageManager().getPackageInfo(PACKAGE_NAME, 0);
+            return true;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
     public static boolean isAppEnabled(Context context, String packageName) {
         try {
             ApplicationInfo applicationInfo = context.getPackageManager().getApplicationInfo(packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES | PackageManager.MATCH_DISABLED_COMPONENTS);
@@ -56,7 +64,6 @@ public class IceboxUtils extends BroadcastReceiver {
         return true;
     }
 
-    @RequiresPermission(SDK_PERMISSION)
     public static void enableApp(Context context, boolean enable, String... packageNames) {
         int userHandle = Process.myUserHandle().hashCode();
         Bundle extra = new Bundle();
@@ -70,7 +77,7 @@ public class IceboxUtils extends BroadcastReceiver {
     public static void activeApp(Context context, String pkg) {
         try {
             if (!isIceBoxWorking) {
-                if (ContextCompat.checkSelfPermission(context, SDK_PERMISSION) != PackageManager.PERMISSION_GRANTED) {
+                if (context.checkSelfPermission(SDK_PERMISSION) != PackageManager.PERMISSION_GRANTED) {
                     Log.e(TAG, "[icebox] need permission " + pkg);
                     return;
                 }

@@ -8,7 +8,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.UserManager;
 
@@ -131,23 +130,13 @@ public abstract class XposedModule {
         }
     }
 
-    /** 配置（远程配置 + 白名单）就绪后回调，默认空实现。 */
+    /** 用户解锁、运行期状态就绪后回调，默认空实现。 */
     protected void onCanReadConfig() throws Throwable {
     }
 
     // ------------------------------------------------------------------
-    // 配置广播 / 卸载监听
+    // 卸载监听
     // ------------------------------------------------------------------
-
-    /** 模块 UI 保存配置后发送该广播，通知各进程重新加载配置。 */
-    private static final BroadcastReceiver configUpdateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context _context, Intent intent) {
-            if (FcmselfConfig.ACTION_UPDATE_CONFIG.equals(intent.getAction())) {
-                FcmselfConfig.load();
-            }
-        }
-    };
 
     private static final BroadcastReceiver uninstallReceiver = new BroadcastReceiver() {
         @Override
@@ -166,17 +155,9 @@ public abstract class XposedModule {
         }
     };
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private static synchronized void initReceiver() {
         if (!isInitReceiver && context != null) {
             isInitReceiver = true;
-
-            IntentFilter updateConfigIntentFilter = new IntentFilter(FcmselfConfig.ACTION_UPDATE_CONFIG);
-            if (Build.VERSION.SDK_INT >= 34) {
-                context.registerReceiver(configUpdateReceiver, updateConfigIntentFilter, Context.RECEIVER_EXPORTED);
-            } else {
-                context.registerReceiver(configUpdateReceiver, updateConfigIntentFilter);
-            }
 
             IntentFilter unInstallIntentFilter = new IntentFilter(Intent.ACTION_PACKAGE_REMOVED);
             unInstallIntentFilter.addDataScheme("package");
@@ -206,14 +187,12 @@ public abstract class XposedModule {
     }
 
     /**
-     * 目标应用是否在白名单内（fcmself 自身恒为 true）。
+     * 广播/通知是否有明确的目标应用包名。
+     *
+     * <p>本模块没有白名单：只要目标包名可解析就介入，避免对无目标的隐式广播做处理。
      */
-    protected boolean targetIsAllow(String packageName) {
-        return FcmselfConfig.isAllowed(packageName);
-    }
-
-    protected boolean getBooleanConfig(String key, boolean defaultValue) {
-        return FcmselfConfig.getBoolean(key, defaultValue);
+    protected boolean hasTargetPackage(String packageName) {
+        return packageName != null && !packageName.isEmpty();
     }
 
     protected void sendNotification(String title) {

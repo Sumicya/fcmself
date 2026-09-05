@@ -2,7 +2,6 @@ package sumicya.fcmself.xposed;
 
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
@@ -39,7 +38,7 @@ import sumicya.fcmself.util.XposedUtils;
  * <ul>
  *   <li>固定心跳间隔（heartbeatInterval）与重连间隔（reconnInterval，单位 ms，>1000 生效）；</li>
  *   <li>倒计时出现异常负值时主动发送 GCM_RECONNECT 广播触发重连；</li>
- *   <li>在 FCM Diagnostics 页面注入 RECONNECT / 打开 fcmself 按钮；</li>
+ *   <li>在 FCM Diagnostics 页面注入 RECONNECT 按钮；</li>
  *   <li>把 fcmself 诊断日志转发到 GMS 日志（便于在 FCM Diagnostics 查看）。</li>
  * </ul>
  *
@@ -99,7 +98,6 @@ public class ReconnectManagerFix extends XposedModule {
     protected void onCanReadConfig() throws Throwable {
         if (startHookFlag) {
             this.checkVersion();
-            FcmselfConfig.load();
         } else {
             startHookFlag = true;
         }
@@ -371,8 +369,7 @@ public class ReconnectManagerFix extends XposedModule {
     }
 
     /**
-     * 在 GMS 的 FCM Diagnostics 页面注入两个按钮：
-     * RECONNECT（发送重连广播）、打开 fcmself（启动本模块设置界面）。
+     * 在 GMS 的 FCM Diagnostics 页面注入 RECONNECT 按钮（发送重连广播）。
      */
     private void addButton() {
         XposedHelpers.findAndHookMethod("com.google.android.gms.gcm.GcmChimeraDiagnostics", classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
@@ -390,17 +387,6 @@ public class ReconnectManagerFix extends XposedModule {
                     printLog("Send broadcast GCM_RECONNECT", true);
                 });
                 linearLayout2.addView(reConnectButton);
-
-                Button openFcmSelfButton = new Button((ContextWrapper) param.thisObject);
-                openFcmSelfButton.setText("打开 fcmself");
-                openFcmSelfButton.setOnClickListener(view -> {
-                    Intent intent = new Intent(Intent.ACTION_VIEW);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    intent.setPackage(FcmselfConfig.SELF_PACKAGE);
-                    intent.setComponent(new ComponentName(FcmselfConfig.SELF_PACKAGE, FcmselfConfig.SELF_PACKAGE + ".MainActivity"));
-                    context.startActivity(intent);
-                });
-                linearLayout2.addView(openFcmSelfButton);
             }
         });
     }

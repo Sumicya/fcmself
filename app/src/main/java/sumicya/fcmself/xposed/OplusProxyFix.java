@@ -74,7 +74,7 @@ public class OplusProxyFix extends XposedModule {
                 String action = (String) param.args[6];
                 
                 // 示例：caller=com.google.android.gms, action=com.google.android.c2dm.intent.RECEIVE
-                if (isFCMAction(action) && targetIsAllow(pkgName)) {
+                if (isFCMAction(action) && hasTargetPackage(pkgName)) {
                     printLog("shouldProxy bypass: pkg=" + pkgName + 
                              ", caller=" + callingPkg + 
                              ", action=" + action);
