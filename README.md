@@ -4,6 +4,8 @@
 
 一个基于 Xposed/LSPosed 的 Android FCM(GCM) 推送通知修复模块，特别针对国内定制 ROM 进行优化。
 
+**纯 Hook 模块**：没有设置界面、没有白名单、没有任何配置项——装上、在 LSPosed 里勾选作用域、重启，所有修复对所有 FCM 目标应用生效。APK 里除图标与 manifest 外只有模块自身的类（CI 产出的 release + debug 两个包合计约 217 KB）。
+
 ## 功能特性
 
 ### 核心功能
@@ -41,7 +43,8 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 1. 确保设备已 root 并安装 LSPosed 框架
 2. 在 LSPosed 中启用本模块（勾选对应作用域，见下）
 3. 重启设备
-4. 打开应用，授予"读取应用列表"权限，在应用列表中选择需要接收 FCM 推送的应用
+
+模块没有启动图标，也不需要任何配置。
 
 ### LSPosed 作用域
 
@@ -50,12 +53,15 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 - 需要重连修复时勾选 `com.google.android.gms`
 - 在 MIUI/HyperOS 上如果推送没有问题，就不需要额外勾选电量和性能相关作用域
 
-## 配置选项
+## 行为说明（无配置项）
 
-- **阻止应用停止时自动清除通知**: 启用后防止系统自动清理通知
-- **允许唤醒被冰箱冻结的应用**: 配合 IceBox 等冻结工具使用（需授予 `com.catchingnow.icebox.SDK` 权限）
-- **全选包含 FCM 的应用**: 菜单一键操作
-- **打开 FCM Diagnostics**: 跳转 GMS 诊断页（重连修复会在其中注入 RECONNECT 按钮）
+原先由设置界面控制的开关现在都固定生效：
+
+- **阻止应用停止时自动清除通知**：始终生效
+- **唤醒被 IceBox 冻结的应用**：检测到已安装 IceBox（`com.catchingnow.icebox`）时才走
+  "解冻 → 等待 → 补发广播"流程；没装 IceBox 的用户不受影响
+- **重连修复**：在 GMS 的 FCM Diagnostics 页面注入 `RECONNECT` 按钮（原先还有一个"打开 fcmself"
+  按钮，随设置界面一起移除）
 
 ## 技术实现
 
@@ -84,7 +90,7 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 
 - `libxposed/`：传统 Xposed API 风格的封装层，底层桥接到 LSPosed `XposedInterface`。
   同一方法重复挂载多个回调时只安装一个底层拦截器，避免回调重复执行。
-- `config/FcmselfConfig`：配置中心（白名单/开关/启动时机），system_server 启动完成后 60 秒才介入广播。
+- `config/FcmselfConfig`：运行期状态，只保留"系统是否启动完成"（system_server 用户解锁后延迟 60 秒才介入广播）。
 - 各 Fix 模块独立 try/catch，单个 Hook 点缺失/失败不影响其它模块。
 
 ## 项目结构
@@ -93,9 +99,7 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 app/
 ├── src/main/java/sumicya/fcmself/
 │   ├── XposedMain.java              # LSPosed 入口（Hook 模块清单登记处）
-│   ├── MainActivity.java            # 设置界面（白名单/开关）
-│   ├── BootCompletedReceiver.java
-│   ├── config/FcmselfConfig.java    # 配置中心
+│   ├── config/FcmselfConfig.java    # 运行期状态（仅"系统是否启动完成"）
 │   ├── libxposed/                   # Xposed API 兼容层（桥接 LSPosed）
 │   ├── util/                        # 工具类（日志、IceBox 等）
 │   └── xposed/                      # Hook 模块
@@ -145,7 +149,8 @@ pkg install -y openjdk-21 apksigner
 `Xposed-Modules-Repo/sumicya.fcmself`）。LSPosed 的远程配置按模块包名隔离，因此：
 
 - 旧版本不会自动升级为新版本，需要先在 LSPosed 中停用并卸载旧模块，再安装新模块；
-- 旧模块里勾选的白名单**不会迁移**，安装后需要重新选择目标应用；
+- **设置界面与白名单已彻底移除**：模块不再有启动图标，也不再读取任何配置。原先"阻止应用停止时
+  自动清除通知"这类开关改为始终生效，作用范围从白名单应用扩大到所有 FCM 目标应用；
 - GMS 内的重连修复参数存放在 GMS 自己的 `fcmself_config` 里，需要在 FCM Diagnostics 页面重新开启一次。
 
 ## 已知问题
