@@ -25,10 +25,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import sumicya.fcmself.libxposed.XC_MethodHook;
-import sumicya.fcmself.libxposed.XposedBridge;
-import sumicya.fcmself.libxposed.XposedHelpers;
-import sumicya.fcmself.util.XposedUtils;
+import sumicya.fcmself.util.Hooks;
+import sumicya.fcmself.util.Reflect;
 
 import io.github.libxposed.api.XposedInterface;
 
@@ -109,7 +107,7 @@ public class ReconnectManagerFix extends XposedModule {
 
     public ReconnectManagerFix(XposedInterface api, ClassLoader classLoader) {
         super(api, classLoader);
-        this.GcmChimeraService = XposedHelpers.findClass("com.google.android.gms.gcm.GcmChimeraService", classLoader);
+        this.GcmChimeraService = Reflect.findClass("com.google.android.gms.gcm.GcmChimeraService", classLoader);
         this.addButton();
         this.startHookGcmServiceStart();
     }
@@ -139,31 +137,35 @@ public class ReconnectManagerFix extends XposedModule {
                     }
                 }
             }
-            XposedHelpers.findAndHookMethod(this.GcmChimeraService, "onCreate", new XC_MethodHook() {
-                @SuppressLint("UnspecifiedRegisterReceiverFlag")
-                @Override
-                protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
-                    IntentFilter intentFilter = new IntentFilter(FcmselfConfig.ACTION_LOG);
-                    if (Build.VERSION.SDK_INT >= 34) {
-                        context.registerReceiver(logBroadcastReceive, intentFilter, Context.RECEIVER_EXPORTED);
-                    } else {
-                        context.registerReceiver(logBroadcastReceive, intentFilter);
-                    }
-                    if (startHookFlag) {
-                        checkVersion();
-                    } else {
-                        startHookFlag = true;
-                    }
-                }
-            });
-            XposedHelpers.findAndHookMethod(this.GcmChimeraService, "onDestroy", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(final MethodHookParam param) {
+            Hooks.hookMethodAfter(api, this.GcmChimeraService, "onCreate", new Class<?>[0],
+                    (chain, error) -> {
+                        registerLogReceiver();
+                        if (startHookFlag) {
+                            checkVersion();
+                        } else {
+                            startHookFlag = true;
+                        }
+                    });
+            Hooks.hookMethod(api, this.GcmChimeraService, "onDestroy", new Class<?>[0], chain -> {
+                try {
                     context.unregisterReceiver(logBroadcastReceive);
+                } catch (Throwable ignored) {
+                    // 接收器可能已经注销过
                 }
+                return chain.proceed();
             });
         } catch (Throwable e) {
-            XposedBridge.log("[fcmself] GcmChimeraService hook 失败: " + e.getMessage());
+            printLog("GcmChimeraService hook 失败: " + e.getMessage());
+        }
+    }
+
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private void registerLogReceiver() {
+        IntentFilter intentFilter = new IntentFilter(FcmselfConfig.ACTION_LOG);
+        if (Build.VERSION.SDK_INT >= 34) {
+            context.registerReceiver(logBroadcastReceive, intentFilter, Context.RECEIVER_EXPORTED);
+        } else {
+            context.registerReceiver(logBroadcastReceive, intentFilter);
         }
     }
 
@@ -226,39 +228,45 @@ public class ReconnectManagerFix extends XposedModule {
         printLog("timer_class: " + sharedPreferences.getString(PREF_TIMER_CLASS, ""), true);
         printLog("timer_alarm_type_property: " + sharedPreferences.getString(PREF_TIMER_ALARM_TYPE_PROPERTY, ""), true);
         printLog("timer_settimeout_method: " + sharedPreferences.getString(PREF_TIMER_SETTIMEOUT_METHOD, ""), true);
-        final Class<?> timerClazz = XposedHelpers.findClass(sharedPreferences.getString(PREF_TIMER_CLASS, ""), classLoader);
+        final Class<?> timerClazz = Reflect.findClass(sharedPreferences.getString(PREF_TIMER_CLASS, ""), classLoader);
 
         // 检测心跳/重连倒计时是否出现异常负值
-        XposedHelpers.findAndHookMethod(timerClazz, sharedPreferences.getString(PREF_TIMER_SETTIMEOUT_METHOD, ""), long.class, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(final MethodHookParam param) {
-                // 防止计时器出现负数计时（心跳/重连倒计时），异常时主动触发重连
-                String alarmType = (String) XposedUtils.getObjectFieldByPath(param.thisObject,
-                        sharedPreferences.getString(PREF_TIMER_ALARM_TYPE_PROPERTY, ""));
-                if (ALARM_TYPE_HEARTBEAT.equals(alarmType) || ALARM_TYPE_CONNECTION.equals(alarmType)) {
+        Hooks.hookMethodAfter(api, timerClazz,
+                sharedPreferences.getString(PREF_TIMER_SETTIMEOUT_METHOD, ""), new Class<?>[]{long.class},
+                (chain, error) -> {
+                    // Chain 不能跨线程或跨调用复用，延时任务要用的值先取出来
+                    final Object timer = chain.getThisObject();
+                    final long timeout = (long) chain.getArg(0);
+                    // 防止计时器出现负数计时（心跳/重连倒计时），异常时主动触发重连
+                    String alarmType = (String) Reflect.getObjectFieldByPath(timer,
+                            sharedPreferences.getString(PREF_TIMER_ALARM_TYPE_PROPERTY, ""));
+                    if (!ALARM_TYPE_HEARTBEAT.equals(alarmType) && !ALARM_TYPE_CONNECTION.equals(alarmType)) {
+                        return;
+                    }
                     Field maxField = null;
                     long maxFieldValue = 0L;
                     for (Field field : timerClazz.getDeclaredFields()) {
                         if (field.getType() == long.class) {
-                            long fieldValue = (long) XposedHelpers.getObjectField(param.thisObject, field.getName());
+                            long fieldValue = (long) Reflect.getObjectField(timer, field.getName());
                             if (maxField == null || fieldValue > maxFieldValue) {
                                 maxField = field;
                                 maxFieldValue = fieldValue;
                             }
                         }
                     }
-                    final Field finalMaxField = maxField;
+                    if (maxField == null) {
+                        return;
+                    }
+                    final String maxFieldName = maxField.getName();
                     NEGATIVE_COUNTDOWN_SCHEDULER.schedule(() -> {
-                        long nextConnectionTime = XposedHelpers.getLongField(param.thisObject, finalMaxField.getName());
+                        long nextConnectionTime = Reflect.getLongField(timer, maxFieldName);
                         if (nextConnectionTime != 0
                                 && nextConnectionTime - SystemClock.elapsedRealtime() < NEGATIVE_COUNTDOWN_THRESHOLD_MS) {
                             context.sendBroadcast(new Intent("com.google.android.intent.action.GCM_RECONNECT"));
                             printLog("Send broadcast GCM_RECONNECT", true);
                         }
-                    }, (long) param.args[0] + COUNTDOWN_CHECK_DELAY_MS, TimeUnit.MILLISECONDS);
-                }
-            }
-        });
+                    }, timeout + COUNTDOWN_CHECK_DELAY_MS, TimeUnit.MILLISECONDS);
+                });
     }
 
     /** 诊断日志广播接收器：把 fcmself 日志写入 GMS 日志（FCM Diagnostics 可见）。 */
@@ -267,10 +275,10 @@ public class ReconnectManagerFix extends XposedModule {
         public void onReceive(Context context, Intent intent) {
             if (FcmselfConfig.ACTION_LOG.equals(intent.getAction())) {
                 try {
-                    XposedHelpers.callStaticMethod(GcmChimeraService, GcmChimeraServiceLogMethodName,
+                    Reflect.callStaticMethod(GcmChimeraService, GcmChimeraServiceLogMethodName,
                             new Class<?>[]{String.class, Object[].class}, "[fcmself] " + intent.getStringExtra("text"), null);
                 } catch (Throwable e) {
-                    XposedBridge.log("[fcmself] 输出日志到fcm失败： [fcmself] " + intent.getStringExtra("text"));
+                    printLog("输出日志到fcm失败：" + intent.getStringExtra("text"));
                 }
             }
         }
@@ -284,7 +292,7 @@ public class ReconnectManagerFix extends XposedModule {
     private void findAndUpdateHookTarget(final SharedPreferences sharedPreferences) {
         final SharedPreferences.Editor editor = sharedPreferences.edit();
         try {
-            Class<?> heartbeatChimeraAlarm = XposedHelpers.findClass("com.google.android.gms.gcm.connection.HeartbeatChimeraAlarm", classLoader);
+            Class<?> heartbeatChimeraAlarm = Reflect.findClass("com.google.android.gms.gcm.connection.HeartbeatChimeraAlarm", classLoader);
             Class<?> timerClass = heartbeatChimeraAlarm.getConstructors()[0].getParameterTypes()[3];
             if (timerClass.getDeclaredMethods().length == 0) {
                 timerClass = timerClass.getSuperclass();
@@ -313,27 +321,26 @@ public class ReconnectManagerFix extends XposedModule {
                     if (alarmClassConstructor == null) {
                         throw new Throwable("未找到构造函数");
                     }
-                    XposedBridge.hookMethod(alarmClassConstructor, new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(final MethodHookParam param) {
-                            if (!isFinish[0]) {
-                                for (Field field : alarmClass.getDeclaredFields()) {
-                                    if (field.getType() == String.class && Modifier.isFinal(field.getModifiers()) && Modifier.isPrivate(field.getModifiers())) {
-                                        if (param.args[2] != null && XposedHelpers.getObjectField(param.thisObject, field.getName()) == param.args[2]) {
-                                            SharedPreferences.Editor editor = sharedPreferences.edit();
-                                            editor.putString(PREF_TIMER_ALARM_TYPE_PROPERTY, timerClassField.getName() + "." + field.getName());
-                                            editor.putBoolean(PREF_ENABLE, true);
-                                            editor.apply();
-                                            isFinish[0] = true;
-                                            printLog("更新hook位置成功", true);
-                                            sendNotification("自动更新配置文件成功");
-                                            startHook();
-                                            return;
-                                        }
+                    Hooks.hookAfter(api, alarmClassConstructor, (chain, err) -> {
+                        Object alarm = chain.getThisObject();
+                        Object alarmTag = chain.getArg(2);
+                        if (!isFinish[0]) {
+                            for (Field field : alarmClass.getDeclaredFields()) {
+                                if (field.getType() == String.class && Modifier.isFinal(field.getModifiers()) && Modifier.isPrivate(field.getModifiers())) {
+                                    if (alarmTag != null && Reflect.getObjectField(alarm, field.getName()) == alarmTag) {
+                                        SharedPreferences.Editor editor = sharedPreferences.edit();
+                                        editor.putString(PREF_TIMER_ALARM_TYPE_PROPERTY, timerClassField.getName() + "." + field.getName());
+                                        editor.putBoolean(PREF_ENABLE, true);
+                                        editor.apply();
+                                        isFinish[0] = true;
+                                        printLog("更新hook位置成功", true);
+                                        sendNotification("自动更新配置文件成功");
+                                        startHook();
+                                        return;
                                     }
                                 }
-                                printLog("自动寻找hook点失败: 未找到目标方法", true);
                             }
+                            printLog("自动寻找hook点失败: 未找到目标方法", true);
                         }
                     });
                     break;
@@ -351,22 +358,24 @@ public class ReconnectManagerFix extends XposedModule {
      * 在 GMS 的 FCM Diagnostics 页面注入 RECONNECT 按钮（发送重连广播）。
      */
     private void addButton() {
-        XposedHelpers.findAndHookMethod("com.google.android.gms.gcm.GcmChimeraDiagnostics", classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
-            @SuppressLint("SetTextI18n")
-            @Override
-            protected void afterHookedMethod(final MethodHookParam param) {
-                ViewGroup viewGroup = ((Window) XposedHelpers.callMethod(param.thisObject, "getWindow")).getDecorView().findViewById(android.R.id.content);
-                LinearLayout linearLayout = (LinearLayout) viewGroup.getChildAt(0);
-                LinearLayout linearLayout2 = (LinearLayout) linearLayout.getChildAt(0);
+        Method onCreate = Reflect.findMethodExact(
+                Reflect.findClass("com.google.android.gms.gcm.GcmChimeraDiagnostics", classLoader),
+                "onCreate", Bundle.class);
+        Hooks.hookAfter(api, onCreate, (chain, error) -> injectReconnectButton(chain.getThisObject()));
+    }
 
-                Button reConnectButton = new Button((ContextWrapper) param.thisObject);
-                reConnectButton.setText("RECONNECT");
-                reConnectButton.setOnClickListener(view -> {
-                    context.sendBroadcast(new Intent("com.google.android.intent.action.GCM_RECONNECT"));
-                    printLog("Send broadcast GCM_RECONNECT", true);
-                });
-                linearLayout2.addView(reConnectButton);
-            }
+    @SuppressLint("SetTextI18n")
+    private void injectReconnectButton(Object activity) {
+        ViewGroup viewGroup = ((Window) Reflect.callMethod(activity, "getWindow")).getDecorView().findViewById(android.R.id.content);
+        LinearLayout linearLayout = (LinearLayout) viewGroup.getChildAt(0);
+        LinearLayout linearLayout2 = (LinearLayout) linearLayout.getChildAt(0);
+
+        Button reConnectButton = new Button((ContextWrapper) activity);
+        reConnectButton.setText("RECONNECT");
+        reConnectButton.setOnClickListener(view -> {
+            context.sendBroadcast(new Intent("com.google.android.intent.action.GCM_RECONNECT"));
+            printLog("Send broadcast GCM_RECONNECT", true);
         });
+        linearLayout2.addView(reConnectButton);
     }
 }
