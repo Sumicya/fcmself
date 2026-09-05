@@ -16,6 +16,7 @@
 #   5. 构建失败时把日志尾部写进 GITHUB_STEP_SUMMARY（Actions 日志文件需网页下载，
 #      summary 可以直接通过 API 读取，便于排查）
 #   6. 发布类步骤加 if: github.event_name == 'push'，避免 PR 触发时误建 Release
+#   7. 构建失败时把日志尾部贴成 PR 评论（job summary 通过 API 读不到，评论可以）
 
 name: Android CI
 
@@ -28,6 +29,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # 构建失败时需要往 PR 贴日志评论
+      pull-requests: write
     steps:
     - uses: actions/checkout@v4
 
@@ -66,6 +71,25 @@ jobs:
           tail -n 150 build.log
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
+
+    # Actions 的日志文件与 job summary 在受限网络下都读不到（日志在 blob.core.windows.net，
+    # summary 不在 check-run 的 output 里）；PR 评论可以通过 api.github.com 直接读取，
+    # 所以失败时把日志尾部贴成评论。
+    - name: Post build log tail to PR on failure
+      if: failure() && github.event_name == 'pull_request'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: bash
+      run: |
+        {
+          echo '### Gradle build log (tail 120)'
+          echo '```'
+          tail -n 120 build.log
+          echo '```'
+        } > /tmp/build-log-tail.md
+        gh pr comment "${{ github.event.pull_request.number }}" \
+          --repo "${{ github.repository }}" \
+          --body-file /tmp/build-log-tail.md
 
     - name: Setup build tool version variable
       shell: bash
