@@ -122,9 +122,6 @@ public class MainActivity extends AppCompatActivity {
             if (!this.config.has(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP)) {
                 this.config.put(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, false);
             }
-            if (!this.config.has(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION)) {
-                this.config.put(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION, false);
-            }
         } catch (JSONException e) {
             Log.e(TAG, "ensureDefaultConfig: " + e);
         }
@@ -144,8 +141,6 @@ public class MainActivity extends AppCompatActivity {
                     pref.getBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false));
             this.config.put(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP,
                     pref.getBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, false));
-            this.config.put(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION,
-                    pref.getBoolean(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION, false));
         } catch (JSONException e) {
             Log.e(TAG, "loadRemoteConfig: " + e);
         }
@@ -163,7 +158,6 @@ public class MainActivity extends AppCompatActivity {
                     .putStringSet(FcmfixConfig.KEY_ALLOW_LIST, new HashSet<>(this.allowList))
                     .putBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, this.config.getBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION))
                     .putBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, this.config.getBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP))
-                    .putBoolean(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION, this.config.getBoolean(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION))
                     .commit();
             if (!saved) {
                 throw new IllegalStateException("配置写入失败");

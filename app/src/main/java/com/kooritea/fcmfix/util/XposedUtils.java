@@ -10,11 +10,6 @@ import com.kooritea.fcmfix.libxposed.XposedHelpers;
 public class XposedUtils {
 
 
-    public static XC_MethodHook.Unhook findAndHookConstructorAnyParam(String className, ClassLoader classLoader, XC_MethodHook callbacks, Class<?> ...parameterTypes){
-        Class<?> clazz = XposedHelpers.findClass(className,classLoader);
-        return findAndHookConstructorAnyParam(clazz, callbacks, parameterTypes );
-    }
-
     public static XC_MethodHook.Unhook findAndHookConstructorAnyParam(Class<?> clazz, XC_MethodHook callbacks, Class<?> ...parameterTypes){
         Constructor<?> bestMatch = null;
         int matchCount = 0;
@@ -46,14 +41,6 @@ public class XposedUtils {
         }
     }
 
-    public static Method findMethodMostParam(Class<?> clazz, String methodName){
-        Method bestMatch = tryFindMethodMostParam(clazz,methodName);
-        if(bestMatch == null){
-            throw new NoSuchMethodError(clazz.getName() + '#' + methodName);
-        }
-        return bestMatch;
-    }
-
     public static Method tryFindMethodMostParam(Class<?> clazz, String methodName){
         Method bestMatch = null;
         for(Method method : clazz.getDeclaredMethods()){
@@ -64,10 +51,6 @@ public class XposedUtils {
             }
         }
         return bestMatch;
-    }
-
-    public static XC_MethodHook.Unhook findAndHookMethodMostParam(Class<?> clazz, String methodName, XC_MethodHook callbacks){
-        return XposedBridge.hookMethod(XposedHelpers.findMethodExact(clazz,methodName,findMethodMostParam(clazz,methodName).getParameterTypes()), callbacks);
     }
 
     public static XC_MethodHook.Unhook findAndHookMethodAnyParam(Class<?> clazz, String methodName, XC_MethodHook callbacks, Object ...parameterTypes){
@@ -127,14 +110,6 @@ public class XposedUtils {
     public static XC_MethodHook.Unhook findAndHookMethodAnyParam(String className, ClassLoader classLoader, String methodName, XC_MethodHook callbacks, Object ...parameterTypes){
         Class<?> clazz = XposedHelpers.findClass(className,classLoader);
         return findAndHookMethodAnyParam(clazz,methodName,callbacks,parameterTypes);
-    }
-
-    public static Object getObjectFieldByPath(Object obj, String pathFieldName, Class<?> clazz){
-        Object result = getObjectFieldByPath(obj,pathFieldName);
-        if(result.getClass() != clazz){
-            throw new NoSuchFieldError(obj.getClass().getName() + "#" +pathFieldName + ";Found " + result.getClass().getName() + " but not equal " + clazz.getName() + ".");
-        }
-        return result;
     }
 
     public static Object getObjectFieldByPath(Object obj, String pathFieldName){

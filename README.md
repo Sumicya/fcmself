@@ -18,15 +18,11 @@
 - 绕过 OplusProxyWakeLock 冻结机制
 - 阻止 OplusProxyBroadcast 拦截 FCM 广播
 - 禁用 Hans 后台管理系统对 GMS 的限制
-- 配合 fcmfix 可实现无代理直接接收 FCM 消息
 
 #### MIUI/HyperOS
 - 修复 PowerKeeper 对 GMS 的限制
 - 解除本地通知自动清除
 - 绕过 BroadcastQueue/SmartPower 的自启动拦截
-
-### 实验性功能（默认禁用）
-- 目标无响应时代发提示通知（`noResponseNotification`，依赖 `BroadcastQueueModernImpl` 内部结构，ROM 升级后易失效）
 
 ## 关于 FCM
 
@@ -45,8 +41,7 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 1. 确保设备已 root 并安装 LSPosed 框架
 2. 在 LSPosed 中启用本模块（勾选对应作用域，见下）
 3. 重启设备
-4. **full 版**：打开应用，授予"读取应用列表"权限，在应用列表中选择需要接收 FCM 推送的应用
-5. **lite 版**：无界面，白名单通过文件配置（见下）
+4. 打开应用，授予"读取应用列表"权限，在应用列表中选择需要接收 FCM 推送的应用
 
 ### LSPosed 作用域
 
@@ -55,16 +50,7 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 - 需要重连修复时勾选 `com.google.android.gms`
 - 在 MIUI/HyperOS 上如果推送没有问题，就不需要额外勾选电量和性能相关作用域
 
-### lite 版白名单配置
-
-lite 版没有设置界面，白名单通过模块共享数据目录中的 `allowlist.txt` 配置（每行一个包名，`#` 开头为注释），重启后生效：
-
-```shell
-adb shell "echo com.example.app >> /data/data/com.kooritea.fcmfix/files/allowlist.txt"
-adb reboot
-```
-
-## 配置选项（full 版）
+## 配置选项
 
 - **阻止应用停止时自动清除通知**: 启用后防止系统自动清理通知
 - **允许唤醒被冰箱冻结的应用**: 配合 IceBox 等冻结工具使用（需授予 `com.catchingnow.icebox.SDK` 权限）
@@ -83,7 +69,7 @@ adb reboot
 - `OplusAppStartupManager.shouldPreventSendReceiverReal` (OOS/ColorOS 15)
 - `NotificationManagerService.cancelAllNotificationsInt`
 - `OplusProxyWakeLock` / `OplusProxyBroadcast` (ColorOS)
-- Hans `OplusBgSceneManager` / `OplusHansDBConfig` (ColorOS 可选)
+- Hans `OplusBgSceneManager`：阻止 GMS 限制状态注册与更新 (ColorOS)
 
 #### GMS (`com.google.android.gms`)
 - `GcmChimeraService` 生命周期 + 内部 Timer 重连管理（hook 点自动发现并持久化）
@@ -106,8 +92,8 @@ adb reboot
 ```
 app/
 ├── src/main/java/com/kooritea/fcmfix/
-│   ├── XposedMain.java              # LSPosed 入口
-│   ├── MainActivity.java            # 设置界面（仅 full 变体）
+│   ├── XposedMain.java              # LSPosed 入口（Hook 模块清单登记处）
+│   ├── MainActivity.java            # 设置界面（白名单/开关）
 │   ├── BootCompletedReceiver.java
 │   ├── config/FcmfixConfig.java     # 配置中心
 │   ├── libxposed/                   # Xposed API 兼容层（桥接 LSPosed）
@@ -121,21 +107,19 @@ app/
 │       ├── PowerkeeperFix.java      # MIUI 电量管家
 │       ├── MiuiLocalNotificationFix.java
 │       └── ReconnectManagerFix.java # GMS 重连修复
-├── src/lite/                        # lite 变体（移除 UI、固定作用域）
-└── build.gradle                     # full / lite 双 flavor
+└── build.gradle
 ```
 
 ## 构建说明
 
 ```bash
 ./gradlew assembleRelease
-# 输出：
-# app/build/outputs/apk/release/app-full-release-unsigned.apk
-# app/build/outputs/apk/release/app-lite-release-unsigned.apk
+# 输出：app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
-CI（push 到 master）会自动签名并创建 Release，同时发布 `fcmfix-full-*.apk` 与 `fcmfix-lite-*.apk`；
-`app/build.gradle` 有变更时额外推送到 LSPosed 模块仓库（full 版）。
+CI 在 push 到 master 与 pull_request 上都会构建；构建失败时日志尾部会写进 job summary。
+push 到 master 时自动签名并创建 Release（`fcmfix-*.apk`），
+`app/build.gradle` 有变更时额外推送到 LSPosed 模块仓库。
 
 ## 已知问题
 

@@ -54,19 +54,6 @@ public final class XposedBridge {
         return xposedInterface.getRemotePreferences(group);
     }
 
-    /** 列出模块共享数据目录中的文件（无该能力时抛异常） */
-    public static String[] listRemoteFiles() {
-        ensureInit();
-        return xposedInterface.listRemoteFiles();
-    }
-
-    /** 只读打开模块共享数据目录中的文件 */
-    public static java.io.InputStream openRemoteFile(String name) throws java.io.FileNotFoundException {
-        ensureInit();
-        android.os.ParcelFileDescriptor pfd = xposedInterface.openRemoteFile(name);
-        return new android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd);
-    }
-
     public static XC_MethodHook.Unhook hookMethod(Member member, XC_MethodHook callback) {
         ensureInit();
         if (!(member instanceof Method) && !(member instanceof Constructor<?>)) {

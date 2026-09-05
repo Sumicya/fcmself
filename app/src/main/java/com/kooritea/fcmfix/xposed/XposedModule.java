@@ -67,14 +67,6 @@ public abstract class XposedModule {
     // 进程身份 / 上下文
     // ------------------------------------------------------------------
 
-    public static void setSelfPackageName(String packageName) {
-        FcmfixLog.setSelfPackageName(packageName);
-    }
-
-    public static String getSelfPackageName() {
-        return FcmfixLog.getSelfPackageName();
-    }
-
     public static Context getContext() {
         return context;
     }

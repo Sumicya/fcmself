@@ -14,8 +14,6 @@ import com.kooritea.fcmfix.util.XposedUtils;
  * 1. 绕过 OplusProxyWakeLock 冻结机制
  * 2. 阻止 OplusProxyBroadcast 拦截 FCM 广播
  * 3. 禁用 Hans 后台管理系统对 GMS 的限制
- * 
- * 配合 fcmfix 可实现无代理直接接收 FCM 消息
  */
 public class OplusProxyFix extends XposedModule {
 
@@ -54,13 +52,6 @@ public class OplusProxyFix extends XposedModule {
         } catch (Throwable e) {
             printLog("hook error isGoogleRestricInfoOn: " + e.getMessage());
         }
-        
-        // 可选：阻止 Hans 对 GMS 进行特殊处理（默认禁用）
-        // try {
-        //     startHookIsGmsApp();
-        // } catch (Throwable e) {
-        //     printLog("hook error isGmsApp: " + e.getMessage());
-        // }
     }
 
     /**
@@ -216,19 +207,5 @@ public class OplusProxyFix extends XposedModule {
             int.class, 
             XC_MethodReplacement.returnConstant(false));
         printLog("isGoogleRestricInfoOn hooked");
-    }
-
-    /**
-     * 阻止 Hans 将 GMS 识别为特殊应用（可选功能）
-     */
-    @SuppressWarnings("unused")
-    private void startHookIsGmsApp() {
-        XposedHelpers.findAndHookMethod(
-            "com.android.server.hans.OplusHansDBConfig", 
-            classLoader, 
-            "isGmsApp", 
-            int.class, 
-            XC_MethodReplacement.returnConstant(false));
-        printLog("isGmsApp hooked");
     }
 }

@@ -32,7 +32,6 @@ public final class FcmfixConfig {
     public static final String KEY_ALLOW_LIST = "allowList";
     public static final String KEY_DISABLE_AUTO_CLEAN_NOTIFICATION = "disableAutoCleanNotification";
     public static final String KEY_INCLUDE_ICEBOX_DISABLE_APP = "includeIceBoxDisableApp";
-    public static final String KEY_NO_RESPONSE_NOTIFICATION = "noResponseNotification";
 
     /** 模块 UI 通知钩子侧重新加载配置 */
     public static final String ACTION_UPDATE_CONFIG = "com.kooritea.fcmfix.update.config";
@@ -139,8 +138,6 @@ public final class FcmfixConfig {
                             remotePreferences.getBoolean(KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false));
                     config.put(KEY_INCLUDE_ICEBOX_DISABLE_APP,
                             remotePreferences.getBoolean(KEY_INCLUDE_ICEBOX_DISABLE_APP, false));
-                    config.put(KEY_NO_RESPONSE_NOTIFICATION,
-                            remotePreferences.getBoolean(KEY_NO_RESPONSE_NOTIFICATION, false));
                     config.put("init", true);
                 } catch (Throwable e) {
                     FcmfixLog.log("通过现代Xposed API读取配置失败: " + e.getMessage());
