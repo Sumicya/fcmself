@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    lite 变体：移除设置界面（无 UI 的纯 Hook 模块）。
+    白名单通过模块共享数据目录中的 allowlist.txt 配置（每行一个包名）。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/apk/res/tools">
+
+    <application>
+        <activity
+            android:name=".MainActivity"
+            tools:node="remove" />
+    </application>
+
+</manifest>
