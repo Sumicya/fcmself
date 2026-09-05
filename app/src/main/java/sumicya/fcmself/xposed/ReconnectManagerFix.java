@@ -328,10 +328,13 @@ public class ReconnectManagerFix extends XposedModule {
                             for (Field field : alarmClass.getDeclaredFields()) {
                                 if (field.getType() == String.class && Modifier.isFinal(field.getModifiers()) && Modifier.isPrivate(field.getModifiers())) {
                                     if (alarmTag != null && Reflect.getObjectField(alarm, field.getName()) == alarmTag) {
-                                        SharedPreferences.Editor editor = sharedPreferences.edit();
-                                        editor.putString(PREF_TIMER_ALARM_TYPE_PROPERTY, timerClassField.getName() + "." + field.getName());
-                                        editor.putBoolean(PREF_ENABLE, true);
-                                        editor.apply();
+                                        // 注意：这里必须是新的 Editor。外层 findAndUpdateHookTarget
+                                        // 也有一个同名局部变量 editor，改成 lambda 后两者同处一个
+                                        // 作用域（原来在匿名类里是各自的作用域），故换个名字。
+                                        SharedPreferences.Editor hookPointEditor = sharedPreferences.edit();
+                                        hookPointEditor.putString(PREF_TIMER_ALARM_TYPE_PROPERTY, timerClassField.getName() + "." + field.getName());
+                                        hookPointEditor.putBoolean(PREF_ENABLE, true);
+                                        hookPointEditor.apply();
                                         isFinish[0] = true;
                                         printLog("更新hook位置成功", true);
                                         sendNotification("自动更新配置文件成功");
