@@ -36,8 +36,7 @@ import sumicya.fcmself.util.XposedUtils;
  * 国内网络环境下 GMS 与 Google 服务器之间的长连接容易断开且重连缓慢。
  * 本模块 Hook GMS 内部的心跳/重连计时器：
  * <ul>
- *   <li>固定心跳间隔（heartbeatInterval）与重连间隔（reconnInterval，单位 ms，>1000 生效）；</li>
- *   <li>倒计时出现异常负值时主动发送 GCM_RECONNECT 广播触发重连；</li>
+ *   <li>心跳/重连倒计时出现异常负值时主动发送 GCM_RECONNECT 广播触发重连；</li>
  *   <li>在 FCM Diagnostics 页面注入 RECONNECT 按钮；</li>
  *   <li>把 fcmself 诊断日志转发到 GMS 日志（便于在 FCM Diagnostics 查看）。</li>
  * </ul>
@@ -48,8 +47,12 @@ import sumicya.fcmself.util.XposedUtils;
  * 出发定位 Timer 类/设置超时的方法/alarm 类型字段，结果存入 GMS 本地
  * SharedPreferences {@value #PREF_NAME}，之后直接按缓存 hook。
  *
- * 配置项（GMS 本地 SharedPreferences {@value #PREF_NAME}）：
- * heartbeatInterval / reconnInterval / enable 等。
+ * 状态项（GMS 本地 SharedPreferences {@value #PREF_NAME}）：
+ * {@code enable}（由自动发现流程写入）、缓存的 hook 点、GMS 版本号等，全部由本模块自己维护，
+ * 用户无需配置。
+ *
+ * <p>历史版本还支持固定心跳/重连间隔（heartbeatInterval / reconnInterval），但那两项从来
+ * 没有写入入口、始终为 0（{@code >1000} 才生效），已连同相关分支一起移除。
  */
 public class ReconnectManagerFix extends XposedModule {
 
@@ -57,8 +60,6 @@ public class ReconnectManagerFix extends XposedModule {
     private static final String PREF_IS_INIT = "isInit";
     private static final String PREF_CONFIG_VERSION = "config_version";
     private static final String PREF_ENABLE = "enable";
-    private static final String PREF_HEARTBEAT_INTERVAL = "heartbeatInterval";
-    private static final String PREF_RECONN_INTERVAL = "reconnInterval";
     private static final String PREF_GMS_VERSION = "gms_version";
     private static final String PREF_GMS_VERSION_CODE = "gms_version_code";
     private static final String PREF_TIMER_CLASS = "timer_class";
@@ -189,8 +190,6 @@ public class ReconnectManagerFix extends XposedModule {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putBoolean(PREF_IS_INIT, true);
         editor.putBoolean(PREF_ENABLE, false);
-        editor.putLong(PREF_HEARTBEAT_INTERVAL, 0L);
-        editor.putLong(PREF_RECONN_INTERVAL, 0L);
         editor.putString(PREF_GMS_VERSION, versionName);
         editor.putLong(PREF_GMS_VERSION_CODE, versionCode);
         editor.putString(PREF_CONFIG_VERSION, configVersion);
@@ -201,7 +200,7 @@ public class ReconnectManagerFix extends XposedModule {
     }
 
     /**
-     * 按缓存的 hook 点安装重连修复 Hook（Timer.toString 打标 + setTimeout 间隔改写/负倒计时检测）。
+     * 按缓存的 hook 点安装重连修复 Hook（setTimeout 负倒计时检测）。
      */
     protected void startHook() {
         final SharedPreferences sharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
@@ -210,43 +209,8 @@ public class ReconnectManagerFix extends XposedModule {
         printLog("timer_settimeout_method: " + sharedPreferences.getString(PREF_TIMER_SETTIMEOUT_METHOD, ""), true);
         final Class<?> timerClazz = XposedHelpers.findClass(sharedPreferences.getString(PREF_TIMER_CLASS, ""), classLoader);
 
-        // 心跳/重连 alarm 生效时，在 Timer.toString 输出中追加标记
-        XposedHelpers.findAndHookMethod(timerClazz, "toString", new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(final MethodHookParam param) {
-                String alarmType = (String) XposedUtils.getObjectFieldByPath(param.thisObject,
-                        sharedPreferences.getString(PREF_TIMER_ALARM_TYPE_PROPERTY, ""));
-                if (ALARM_TYPE_HEARTBEAT.equals(alarmType) || ALARM_TYPE_CONNECTION.equals(alarmType)) {
-                    long hinterval = sharedPreferences.getLong(PREF_HEARTBEAT_INTERVAL, 0L);
-                    long cinterval = sharedPreferences.getLong(PREF_RECONN_INTERVAL, 0L);
-                    if ((hinterval > 1000) || (cinterval > 1000)) {
-                        param.setResult(param.getResult() + "[fcmself locked]");
-                    }
-                }
-            }
-        });
-
-        // 改写心跳/重连超时，并检测异常负倒计时
+        // 检测心跳/重连倒计时是否出现异常负值
         XposedHelpers.findAndHookMethod(timerClazz, sharedPreferences.getString(PREF_TIMER_SETTIMEOUT_METHOD, ""), long.class, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(final MethodHookParam param) {
-                // 修改心跳/重连间隔
-                String alarmType = (String) XposedUtils.getObjectFieldByPath(param.thisObject,
-                        sharedPreferences.getString(PREF_TIMER_ALARM_TYPE_PROPERTY, ""));
-                if (ALARM_TYPE_HEARTBEAT.equals(alarmType)) {
-                    long interval = sharedPreferences.getLong(PREF_HEARTBEAT_INTERVAL, 0L);
-                    if (interval > 1000) {
-                        param.args[0] = interval;
-                    }
-                }
-                if (ALARM_TYPE_CONNECTION.equals(alarmType)) {
-                    long interval = sharedPreferences.getLong(PREF_RECONN_INTERVAL, 0L);
-                    if (interval > 1000) {
-                        param.args[0] = interval;
-                    }
-                }
-            }
-
             @Override
             protected void afterHookedMethod(final MethodHookParam param) {
                 // 防止计时器出现负数计时（心跳/重连倒计时），异常时主动触发重连
