@@ -17,7 +17,6 @@ import androidx.core.app.NotificationManagerCompat;
 
 import com.sumicya.fcmself.config.FcmselfConfig;
 import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XposedBridge;
 import com.sumicya.fcmself.libxposed.XposedHelpers;
 import com.sumicya.fcmself.util.FcmselfLog;
 
