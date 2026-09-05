@@ -1,4 +1,4 @@
-package com.sumicya.fcmself.libxposed;
+package sumicya.fcmself.libxposed;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;

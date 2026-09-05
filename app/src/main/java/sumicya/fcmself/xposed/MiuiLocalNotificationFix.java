@@ -1,9 +1,9 @@
-package com.sumicya.fcmself.xposed;
+package sumicya.fcmself.xposed;
 
 import java.lang.reflect.Method;
-import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XposedBridge;
-import com.sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.libxposed.XposedBridge;
+import sumicya.fcmself.libxposed.XposedHelpers;
 
 /**
  * MIUI 本地通知修复模块

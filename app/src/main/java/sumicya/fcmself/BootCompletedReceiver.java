@@ -1,4 +1,4 @@
-package com.sumicya.fcmself;
+package sumicya.fcmself;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

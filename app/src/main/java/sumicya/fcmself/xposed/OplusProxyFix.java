@@ -1,12 +1,12 @@
-package com.sumicya.fcmself.xposed;
+package sumicya.fcmself.xposed;
 
 import android.content.pm.PackageManager;
 import android.os.WorkSource;
 
-import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XC_MethodReplacement;
-import com.sumicya.fcmself.libxposed.XposedHelpers;
-import com.sumicya.fcmself.util.XposedUtils;
+import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.libxposed.XC_MethodReplacement;
+import sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.util.XposedUtils;
 
 /**
  * OPPO/OnePlus ColorOS 专用 FCM 修复模块

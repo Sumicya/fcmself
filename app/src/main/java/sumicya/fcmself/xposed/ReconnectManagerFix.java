@@ -1,4 +1,4 @@
-package com.sumicya.fcmself.xposed;
+package sumicya.fcmself.xposed;
 
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
@@ -16,7 +16,7 @@ import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
-import com.sumicya.fcmself.config.FcmselfConfig;
+import sumicya.fcmself.config.FcmselfConfig;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -25,10 +25,10 @@ import java.lang.reflect.Modifier;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XposedBridge;
-import com.sumicya.fcmself.libxposed.XposedHelpers;
-import com.sumicya.fcmself.util.XposedUtils;
+import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.libxposed.XposedBridge;
+import sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.util.XposedUtils;
 
 /**
  * ReconnectManagerFix - GMS 长连接重连修复模块（运行在 com.google.android.gms 进程）

@@ -1,4 +1,4 @@
-package com.sumicya.fcmself.util;
+package sumicya.fcmself.util;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;

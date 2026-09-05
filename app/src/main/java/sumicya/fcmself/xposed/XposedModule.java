@@ -1,4 +1,4 @@
-package com.sumicya.fcmself.xposed;
+package sumicya.fcmself.xposed;
 
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
@@ -15,10 +15,10 @@ import android.os.UserManager;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
-import com.sumicya.fcmself.config.FcmselfConfig;
-import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XposedHelpers;
-import com.sumicya.fcmself.util.FcmselfLog;
+import sumicya.fcmself.config.FcmselfConfig;
+import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.util.FcmselfLog;
 
 import java.util.ArrayList;
 import java.util.List;

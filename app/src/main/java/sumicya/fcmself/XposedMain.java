@@ -1,4 +1,4 @@
-package com.sumicya.fcmself;
+package sumicya.fcmself;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -6,16 +6,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.sumicya.fcmself.libxposed.XposedBridge;
-import com.sumicya.fcmself.util.FcmselfLog;
-import com.sumicya.fcmself.xposed.AutoStartFix;
-import com.sumicya.fcmself.xposed.BroadcastFix;
-import com.sumicya.fcmself.xposed.KeepNotification;
-import com.sumicya.fcmself.xposed.MiuiLocalNotificationFix;
-import com.sumicya.fcmself.xposed.OplusProxyFix;
-import com.sumicya.fcmself.xposed.PowerkeeperFix;
-import com.sumicya.fcmself.xposed.ReconnectManagerFix;
-import com.sumicya.fcmself.xposed.XposedModule;
+import sumicya.fcmself.libxposed.XposedBridge;
+import sumicya.fcmself.util.FcmselfLog;
+import sumicya.fcmself.xposed.AutoStartFix;
+import sumicya.fcmself.xposed.BroadcastFix;
+import sumicya.fcmself.xposed.KeepNotification;
+import sumicya.fcmself.xposed.MiuiLocalNotificationFix;
+import sumicya.fcmself.xposed.OplusProxyFix;
+import sumicya.fcmself.xposed.PowerkeeperFix;
+import sumicya.fcmself.xposed.ReconnectManagerFix;
+import sumicya.fcmself.xposed.XposedModule;
 
 import io.github.libxposed.api.XposedModuleInterface;
 

@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.sumicya.fcmself"
+    namespace = "sumicya.fcmself"
     compileSdkVersion 36
 
     defaultConfig {
-        applicationId "com.sumicya.fcmself"
+        applicationId "sumicya.fcmself"
         minSdkVersion 29
         targetSdkVersion 34
         versionCode 54

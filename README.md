@@ -91,7 +91,7 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 
 ```
 app/
-├── src/main/java/com/sumicya/fcmself/
+├── src/main/java/sumicya/fcmself/
 │   ├── XposedMain.java              # LSPosed 入口（Hook 模块清单登记处）
 │   ├── MainActivity.java            # 设置界面（白名单/开关）
 │   ├── BootCompletedReceiver.java
@@ -128,8 +128,8 @@ CI（`.github/workflows/android.yml`）在 push 到 master 时构建、签名并
 
 ## 升级说明
 
-本模块的 applicationId 已从 `com.kooritea.fcmfix` 改为 `com.sumicya.fcmself`（LSPosed 模块仓库路径同步改为
-`Xposed-Modules-Repo/com.sumicya.fcmself`）。LSPosed 的远程配置按模块包名隔离，因此：
+本模块的 applicationId 已从 `com.kooritea.fcmfix` 改为 `sumicya.fcmself`（LSPosed 模块仓库路径同步改为
+`Xposed-Modules-Repo/sumicya.fcmself`）。LSPosed 的远程配置按模块包名隔离，因此：
 
 - 旧版本不会自动升级为新版本，需要先在 LSPosed 中停用并卸载旧模块，再安装新模块；
 - 旧模块里勾选的白名单**不会迁移**，安装后需要重新选择目标应用；

@@ -1,4 +1,4 @@
-package com.sumicya.fcmself.libxposed;
+package sumicya.fcmself.libxposed;
 
 import android.content.SharedPreferences;
 import android.util.Log;

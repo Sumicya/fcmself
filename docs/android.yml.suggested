@@ -11,7 +11,7 @@
 #   1. 单变体：产物是 app-release-unsigned-signed.apk，不再有 app-full-/app-lite- 前缀，
 #      原来的两条 mv 会直接报 "No such file or directory"；这里改成按 *-signed.apk 通配匹配
 #   2. APK 改名 fcmfix-*.apk -> fcmself-*.apk（applicationId 已改）
-#   3. LSPosed 模块仓库路径 com.kooritea.fcmfix -> com.sumicya.fcmself
+#   3. LSPosed 模块仓库路径 com.kooritea.fcmfix -> sumicya.fcmself
 #   4. 增加 pull_request 触发，合并前就能跑 CI（现在只有 push 到 master 才跑）
 #   5. 构建失败时把日志尾部写进 GITHUB_STEP_SUMMARY（Actions 日志文件需网页下载，
 #      summary 可以直接通过 API 读取，便于排查）
@@ -122,7 +122,7 @@ jobs:
       with:
         name: "Auto Release ${{ env.VERSION_NAME }}"
         tag_name: ${{ env.VERSION_CODE }}-${{ env.VERSION_NAME }}
-        repository: Xposed-Modules-Repo/com.sumicya.fcmself
+        repository: Xposed-Modules-Repo/sumicya.fcmself
         token: "${{ secrets.TOKEN_CLASSIC }}"
         files: |
           ${{ github.workspace }}/app/build/outputs/apk/release/fcmself-${{ env.VERSION_NAME }}.apk

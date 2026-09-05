@@ -1,14 +1,14 @@
-package com.sumicya.fcmself.xposed;
+package sumicya.fcmself.xposed;
 
 import android.os.Build;
 import android.service.notification.NotificationListenerService;
 
 import java.lang.reflect.Method;
 
-import com.sumicya.fcmself.config.FcmselfConfig;
-import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XposedBridge;
-import com.sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.config.FcmselfConfig;
+import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.libxposed.XposedBridge;
+import sumicya.fcmself.libxposed.XposedHelpers;
 
 /**
  * 通知保持模块 - 防止系统自动清除 FCM 通知

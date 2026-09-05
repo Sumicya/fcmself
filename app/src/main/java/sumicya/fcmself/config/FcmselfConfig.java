@@ -1,4 +1,4 @@
-package com.sumicya.fcmself.config;
+package sumicya.fcmself.config;
 
 import android.content.SharedPreferences;
 
@@ -7,8 +7,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.sumicya.fcmself.libxposed.XposedBridge;
-import com.sumicya.fcmself.util.FcmselfLog;
+import sumicya.fcmself.libxposed.XposedBridge;
+import sumicya.fcmself.util.FcmselfLog;
 
 /**
  * fcmself 运行期配置中心（每个进程一份，system_server / GMS / PowerKeeper 各自独立）。
@@ -26,7 +26,7 @@ import com.sumicya.fcmself.util.FcmselfLog;
 public final class FcmselfConfig {
 
     /** fcmself 模块自身包名（始终视为允许） */
-    public static final String SELF_PACKAGE = "com.sumicya.fcmself";
+    public static final String SELF_PACKAGE = "sumicya.fcmself";
 
     // ---- 配置项键名（与模块 UI 保持一致） ----
     public static final String KEY_ALLOW_LIST = "allowList";
@@ -34,9 +34,9 @@ public final class FcmselfConfig {
     public static final String KEY_INCLUDE_ICEBOX_DISABLE_APP = "includeIceBoxDisableApp";
 
     /** 模块 UI 通知钩子侧重新加载配置 */
-    public static final String ACTION_UPDATE_CONFIG = "com.sumicya.fcmself.update.config";
+    public static final String ACTION_UPDATE_CONFIG = "sumicya.fcmself.update.config";
     /** 诊断日志广播（ReconnectManagerFix 转发到 GMS 日志） */
-    public static final String ACTION_LOG = "com.sumicya.fcmself.log";
+    public static final String ACTION_LOG = "sumicya.fcmself.log";
 
     /** 远程配置组名 */
     public static final String REMOTE_PREFS_GROUP = "config";

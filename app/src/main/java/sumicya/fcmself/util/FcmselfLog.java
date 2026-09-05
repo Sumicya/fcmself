@@ -1,12 +1,12 @@
-package com.sumicya.fcmself.util;
+package sumicya.fcmself.util;
 
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-import com.sumicya.fcmself.config.FcmselfConfig;
-import com.sumicya.fcmself.libxposed.XposedBridge;
-import com.sumicya.fcmself.xposed.XposedModule;
+import sumicya.fcmself.config.FcmselfConfig;
+import sumicya.fcmself.libxposed.XposedBridge;
+import sumicya.fcmself.xposed.XposedModule;
 
 /**
  * fcmself 统一日志。

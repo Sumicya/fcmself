@@ -1,4 +1,4 @@
-package com.sumicya.fcmself;
+package sumicya.fcmself;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
@@ -44,8 +44,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import com.sumicya.fcmself.config.FcmselfConfig;
-import com.sumicya.fcmself.util.IceboxUtils;
+import sumicya.fcmself.config.FcmselfConfig;
+import sumicya.fcmself.util.IceboxUtils;
 
 /**
  * fcmself 设置界面：

@@ -1,11 +1,11 @@
-package com.sumicya.fcmself.util;
+package sumicya.fcmself.util;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 
-import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XposedBridge;
-import com.sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.libxposed.XposedBridge;
+import sumicya.fcmself.libxposed.XposedHelpers;
 
 public class XposedUtils {
 

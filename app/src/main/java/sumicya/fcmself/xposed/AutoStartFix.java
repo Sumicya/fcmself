@@ -1,14 +1,14 @@
-package com.sumicya.fcmself.xposed;
+package sumicya.fcmself.xposed;
 
 import android.content.Intent;
 
-import com.sumicya.fcmself.util.XposedUtils;
+import sumicya.fcmself.util.XposedUtils;
 
 import java.lang.reflect.Method;
 
-import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XposedBridge;
-import com.sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.libxposed.XposedBridge;
+import sumicya.fcmself.libxposed.XposedHelpers;
 
 /**
  * AutoStartFix - 自启动修复模块

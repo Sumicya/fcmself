@@ -1,13 +1,13 @@
-package com.sumicya.fcmself.xposed;
+package sumicya.fcmself.xposed;
 
 import android.content.Context;
 
 import java.lang.reflect.Field;
 import java.util.List;
 
-import com.sumicya.fcmself.libxposed.XC_MethodHook;
-import com.sumicya.fcmself.libxposed.XposedHelpers;
-import com.sumicya.fcmself.util.XposedUtils;
+import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.util.XposedUtils;
 
 /**
  * MIUI PowerKeeper 电源管理修复模块
