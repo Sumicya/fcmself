@@ -48,10 +48,14 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 
 ### LSPosed 作用域
 
-- 必须勾选 `system`（系统服务，核心 Hook 所在）
-- MIUI 设备勾选 `com.miui.powerkeeper`（电量管家限制解除）
-- 需要重连修复时勾选 `com.google.android.gms`
-- 在 MIUI/HyperOS 上如果推送没有问题，就不需要额外勾选电量和性能相关作用域
+模块自带默认预选（`META-INF/xposed/scope.list`，`staticScope=false` 所以仍可手动调整）：
+
+- `system`：系统服务，核心 Hook 所在，**必须**
+- `com.google.android.gms`：重连修复与 FCM Diagnostics 注入
+- `com.miui.powerkeeper`：MIUI/HyperOS 电量管家限制解除
+
+非 MIUI 设备可以取消勾选 `com.miui.powerkeeper`；在 MIUI/HyperOS 上如果推送本来就没问题，
+也不需要额外勾选电量和性能相关作用域。
 
 ## 行为说明（无配置项）
 
