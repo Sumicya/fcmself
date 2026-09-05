@@ -34,6 +34,15 @@ public class OplusProxyFix extends XposedModule {
     /** 包名 -> {上次打印时刻, 期间被抑制条数} */
     private static final Map<String, long[]> BYPASS_LOG_STATE = new ConcurrentHashMap<>();
 
+    /**
+     * "从未打印过"的时刻哨兵。
+     *
+     * <p>{@link SystemClock#elapsedRealtime()} 返回的是开机以来的毫秒数，所以初值不能用 0：
+     * 开机后前 60 秒内到达的第一条 bypass 会满足 {@code now - 0 < 60000} 而被当成
+     * "刚刚打印过"吞掉，只留在抑制计数里。
+     */
+    private static final long NEVER_PRINTED = -BYPASS_LOG_INTERVAL_MS * 2;
+
     private static Object s_oplusProxyWakeLock = null;
     private static volatile boolean s_useFourParams = false;
     private static volatile boolean s_signatureDetected = false;
@@ -146,7 +155,7 @@ public class OplusProxyFix extends XposedModule {
     /** 按包名节流的 bypass 日志（见 {@link #BYPASS_LOG_INTERVAL_MS}）。 */
     private static void logBypassThrottled(String pkgName, String callingPkg, String action) {
         long now = SystemClock.elapsedRealtime();
-        long[] state = BYPASS_LOG_STATE.computeIfAbsent(pkgName, k -> new long[2]);
+        long[] state = BYPASS_LOG_STATE.computeIfAbsent(pkgName, k -> new long[]{NEVER_PRINTED, 0});
         synchronized (state) {
             if (now - state[0] < BYPASS_LOG_INTERVAL_MS) {
                 state[1]++;
