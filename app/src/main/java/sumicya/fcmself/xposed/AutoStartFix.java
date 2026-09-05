@@ -9,6 +9,8 @@ import sumicya.fcmself.libxposed.XposedBridge;
 import sumicya.fcmself.libxposed.XposedHelpers;
 import sumicya.fcmself.util.XposedUtils;
 
+import io.github.libxposed.api.XposedInterface;
+
 /**
  * AutoStartFix - ColorOS / OxygenOS 自启动限制修复
  *
@@ -23,8 +25,8 @@ import sumicya.fcmself.util.XposedUtils;
  */
 public class AutoStartFix extends XposedModule {
 
-    public AutoStartFix(ClassLoader classLoader) {
-        super(classLoader);
+    public AutoStartFix(XposedInterface api, ClassLoader classLoader) {
+        super(api, classLoader);
         try {
             this.startHook();
         } catch (Throwable e) {

@@ -30,6 +30,8 @@ import sumicya.fcmself.libxposed.XposedBridge;
 import sumicya.fcmself.libxposed.XposedHelpers;
 import sumicya.fcmself.util.XposedUtils;
 
+import io.github.libxposed.api.XposedInterface;
+
 /**
  * ReconnectManagerFix - GMS 长连接重连修复模块（运行在 com.google.android.gms 进程）
  *
@@ -105,8 +107,8 @@ public class ReconnectManagerFix extends XposedModule {
      */
     private boolean startHookFlag = false;
 
-    public ReconnectManagerFix(ClassLoader classLoader) {
-        super(classLoader);
+    public ReconnectManagerFix(XposedInterface api, ClassLoader classLoader) {
+        super(api, classLoader);
         this.GcmChimeraService = XposedHelpers.findClass("com.google.android.gms.gcm.GcmChimeraService", classLoader);
         this.addButton();
         this.startHookGcmServiceStart();

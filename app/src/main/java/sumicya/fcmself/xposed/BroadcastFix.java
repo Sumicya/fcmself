@@ -12,6 +12,8 @@ import sumicya.fcmself.util.MethodArgs;
 import sumicya.fcmself.libxposed.XposedBridge;
 import sumicya.fcmself.util.XposedUtils;
 
+import io.github.libxposed.api.XposedInterface;
+
 /**
  * BroadcastFix - 广播修复模块
  *
@@ -43,8 +45,8 @@ public class BroadcastFix extends XposedModule {
      */
     private static final int APP_OP_POST_NOTIFICATION = 11;
 
-    public BroadcastFix(ClassLoader classLoader) {
-        super(classLoader);
+    public BroadcastFix(XposedInterface api, ClassLoader classLoader) {
+        super(api, classLoader);
         try {
             startHookBroadcastIntentLocked();
         } catch (Throwable e) {

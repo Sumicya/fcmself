@@ -12,6 +12,8 @@ import sumicya.fcmself.libxposed.XposedBridge;
 import sumicya.fcmself.libxposed.XposedHelpers;
 import sumicya.fcmself.util.MethodArgs;
 
+import io.github.libxposed.api.XposedInterface;
+
 /**
  * 通知保持模块 - 防止系统自动清除 FCM 通知
  *
@@ -39,8 +41,8 @@ public class KeepNotification extends XposedModule {
     private static final int REASON_COS_OOS_1 = 10020;
     private static final int REASON_COS_OOS_2 = 10021;
 
-    public KeepNotification(ClassLoader classLoader) {
-        super(classLoader);
+    public KeepNotification(XposedInterface api, ClassLoader classLoader) {
+        super(api, classLoader);
         try {
             this.startHook();
         } catch (Throwable e) {

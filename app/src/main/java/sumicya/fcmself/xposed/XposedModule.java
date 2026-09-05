@@ -12,9 +12,11 @@ import android.os.Bundle;
 import android.os.UserManager;
 
 import sumicya.fcmself.config.FcmselfConfig;
-import sumicya.fcmself.libxposed.XC_MethodHook;
-import sumicya.fcmself.libxposed.XposedHelpers;
 import sumicya.fcmself.util.FcmselfLog;
+import sumicya.fcmself.util.Hooks;
+import sumicya.fcmself.util.Reflect;
+
+import io.github.libxposed.api.XposedInterface;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,14 +49,18 @@ public abstract class XposedModule {
     private static final List<XposedModule> instances = new ArrayList<>();
     private static boolean isInitReceiver = false;
 
+    /** libxposed 框架接口，安装 hook 时用 */
+    protected final XposedInterface api;
+
     protected final ClassLoader classLoader;
 
-    protected XposedModule(final ClassLoader classLoader) {
+    protected XposedModule(final XposedInterface api, final ClassLoader classLoader) {
+        this.api = api;
         this.classLoader = classLoader;
         synchronized (instances) {
             instances.add(this);
             if (instances.size() == 1) {
-                initContext(classLoader);
+                initContext(api, classLoader);
             } else if (context != null && isUserUnlocked()) {
                 safeOnCanReadConfig(this);
             }
@@ -77,21 +83,20 @@ public abstract class XposedModule {
         }
     }
 
-    private static void initContext(final ClassLoader classLoader) {
-        XposedHelpers.findAndHookMethod("android.content.ContextWrapper", classLoader, "attachBaseContext", Context.class, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam methodHookParam) {
-                if (context == null) {
-                    context = (Context) methodHookParam.thisObject;
-                    if (isUserUnlocked()) {
-                        callAllOnCanReadConfig();
-                    } else {
-                        IntentFilter filter = new IntentFilter(Intent.ACTION_USER_UNLOCKED);
-                        context.registerReceiver(unlockBroadcastReceive, filter);
+    private static void initContext(final XposedInterface api, final ClassLoader classLoader) {
+        Class<?> contextWrapper = Reflect.findClass("android.content.ContextWrapper", classLoader);
+        Hooks.hookMethodAfter(api, contextWrapper, "attachBaseContext", new Class<?>[]{Context.class},
+                (chain, error) -> {
+                    if (context == null) {
+                        context = (Context) chain.getThisObject();
+                        if (isUserUnlocked()) {
+                            callAllOnCanReadConfig();
+                        } else {
+                            IntentFilter filter = new IntentFilter(Intent.ACTION_USER_UNLOCKED);
+                            context.registerReceiver(unlockBroadcastReceive, filter);
+                        }
                     }
-                }
-            }
-        });
+                });
     }
 
     private static final BroadcastReceiver unlockBroadcastReceive = new BroadcastReceiver() {
@@ -246,7 +251,7 @@ public abstract class XposedModule {
     /** 从携带 intent 字段的广播参数对象中取出 Intent（各 ROM 参数结构不同，按对象字段反射）。 */
     protected static Intent intentOfField(Object holder) {
         try {
-            return (Intent) XposedHelpers.getObjectField(holder, "intent");
+            return (Intent) Reflect.getObjectField(holder, "intent");
         } catch (Throwable e) {
             return null;
         }

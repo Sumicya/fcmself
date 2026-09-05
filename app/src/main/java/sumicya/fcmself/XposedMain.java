@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import sumicya.fcmself.libxposed.XposedBridge;
 import sumicya.fcmself.util.FcmselfLog;
 import sumicya.fcmself.xposed.AutoStartFix;
 import sumicya.fcmself.xposed.BroadcastFix;
@@ -15,6 +14,7 @@ import sumicya.fcmself.xposed.OplusProxyFix;
 import sumicya.fcmself.xposed.ReconnectManagerFix;
 import sumicya.fcmself.xposed.XposedModule;
 
+import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModuleInterface;
 
 /**
@@ -35,7 +35,7 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
 
     /** 单个 Hook 模块的构造方式。 */
     private interface ModuleFactory {
-        XposedModule create(ClassLoader classLoader);
+        XposedModule create(XposedInterface api, ClassLoader classLoader);
     }
 
     /** Hook 模块登记项（名字仅用于日志）。 */
@@ -66,7 +66,7 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
 
     @Override
     public void onSystemServerStarting(XposedModuleInterface.SystemServerStartingParam param) {
-        XposedBridge.init(this);
+        FcmselfLog.setXposed(this);
         FcmselfLog.setSelfPackageName("android");
         installAll(SYSTEM_SERVER_MODULES, param.getClassLoader());
     }
@@ -78,18 +78,18 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
         if (modules == null || !param.isFirstPackage()) {
             return;
         }
-        XposedBridge.init(this);
+        FcmselfLog.setXposed(this);
         FcmselfLog.setSelfPackageName(param.getPackageName());
         installAll(modules, param.getClassLoader());
     }
 
     /** 逐个安装模块；单个模块失败仅记录日志，不影响其它模块。 */
-    private static void installAll(List<ModuleEntry> modules, ClassLoader classLoader) {
+    private void installAll(List<ModuleEntry> modules, ClassLoader classLoader) {
         for (ModuleEntry entry : modules) {
             try {
-                entry.factory.create(classLoader);
+                entry.factory.create(this, classLoader);
             } catch (Throwable t) {
-                XposedBridge.log("[fcmself] 模块安装失败 " + entry.name + ": " + t);
+                FcmselfLog.log("模块安装失败 " + entry.name + ": " + t);
             }
         }
     }

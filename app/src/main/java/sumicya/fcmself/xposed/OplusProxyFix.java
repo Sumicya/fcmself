@@ -12,6 +12,8 @@ import sumicya.fcmself.util.XposedUtils;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import io.github.libxposed.api.XposedInterface;
+
 /**
  * OPPO/OnePlus ColorOS 专用 FCM 修复模块
  * 主要功能：
@@ -36,8 +38,8 @@ public class OplusProxyFix extends XposedModule {
     private static volatile boolean s_useFourParams = false;
     private static volatile boolean s_signatureDetected = false;
 
-    public OplusProxyFix(ClassLoader classLoader) {
-        super(classLoader);
+    public OplusProxyFix(XposedInterface api, ClassLoader classLoader) {
+        super(api, classLoader);
         
         // Hook OplusProxyWakeLock 和 OplusProxyBroadcast
         try {
