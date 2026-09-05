@@ -1,5 +1,9 @@
-minApiVersion=100
-# target 102：兼容 LSPosed API 102（纯增量，不改变 101 上的行为）
+# 代码按 libxposed API 101 编译（compileOnly io.github.libxposed:api:101.0.1），
+# 因此最低要求 101；API 100 框架本来也加载不了 target 102 的模块。
+minApiVersion=101
+# target 102：LSPosed 2.1.0 起实现 API 102（纯增量，不改变 101 上的行为）。
+# 注意 API 102 起 targetApiVersion>=102 的模块不允许再调用 legacy API——
+# 本模块只依赖 io.github.libxposed.api.*，不受该限制。
 targetApiVersion=102
 staticScope=false
 exceptionMode=protective

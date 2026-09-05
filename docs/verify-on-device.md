@@ -148,6 +148,42 @@ fcmself_config init
 页面里还能看到以 `[fcmself] [com.google.android.gms]` 开头的行，那是本模块转发到 GMS 日志的
 诊断信息。
 
+## 7.1 不重启也能验证的部分
+
+模块在**进程启动时**注入。因此只有 `system` 作用域（system_server）必须重启设备，
+其余作用域只要把对应进程杀掉重启即可生效：
+
+```bash
+# GMS 重连修复（ReconnectManagerFix）
+adb shell su -c "am force-stop com.google.android.gms"
+
+# MIUI 电量管家（PowerkeeperFix）
+adb shell su -c "am force-stop com.miui.powerkeeper"
+```
+
+进程重启后按第 5、7 节看日志。**注意**：核心的"唤醒未启动应用"跑在 system_server 里，
+不重启无法验证；第 2、3、4 节必须等设备重启后再看。
+
+## 7.2 Android 16（API 36）需要额外确认的两行
+
+代码按 Android 15 的签名假设硬编码了参数下标，挂 Hook 前会自校验。日志里应该看到：
+
+```
+[fcmself] [android]Android API: 36
+[fcmself] [android]hook target: com.android.server.am.BroadcastController   ← 或 ActivityManagerService
+[fcmself] [android]cancelAllNotificationsInt hook 参数：pkg@2 reason@7（API 36）
+```
+
+如果看到的是下面这些，说明 Android 16 改了签名，请把整段日志发回来（这属于需要适配的情况，
+不是崩溃——对应的 Hook 会被安全跳过，其它模块照常工作）：
+
+```
+broadcastIntentLocked 参数位置无法确定（API 36，参数个数 NN）
+broadcastIntentLocked hook 位置查找失败，fcmself将不会工作。
+cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦截通知：API 36，参数=[...]
+broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@N appOp@N   ← 兜底成功，功能仍可用
+```
+
 ## 8. 出问题时怎么排除
 
 1. LSPosed 里停用模块 → 重启 → 现象还在 = 与本模块无关（ROM 或 GMS 本身）

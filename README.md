@@ -34,9 +34,15 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 
 ## 系统要求
 
-- Android 10+ (API 29+)，Android 10-15 测试
-- Root 权限 + LSPosed 框架（Modern Xposed API 100+，target 102）
-- Google Play 服务 (GMS) 已安装
+- Android 10+（API 29+）。Android 10-15 有过测试记录；**Android 16（API 36）尚未真机验证**
+- Root 权限 + LSPosed 框架，需支持 libxposed API 101+（LSPosed 2.1.0 / 2.2.0，本模块 target API 102）
+- 厂商定制路径只覆盖小米（MIUI/HyperOS 的 `com.miui.*`）与 OPPO（ColorOS/OxygenOS 的 `Oplus*`），
+  其它 ROM 只有通用修复（唤醒停止的应用、阻止通知被自动清理、GMS 重连修复）
+- Google Play 服务 (GMS) 已安装（重连修复需要）
+
+Android 16 上的两处参数下标（`BroadcastController.broadcastIntentLocked` 与
+`NotificationManagerService.cancelAllNotificationsInt`）沿用 Android 15 的假设，代码会在挂 Hook 前
+按真实签名自校验：不符就打日志并跳过该 Hook，不会误拦截广播或通知。
 
 ## 安装说明
 

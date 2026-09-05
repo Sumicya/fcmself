@@ -51,7 +51,7 @@ public class BroadcastFix extends XposedModule {
             Method m = XposedUtils.tryFindMethodMostParam(classLoader, "com.android.server.am.BroadcastController", "broadcastIntentLocked");
             if (m != null) {
                 targetMethod = m;
-                argsIndex = new int[]{3, 13};
+                argsIndex = resolveBroadcastArgs(m, 3, 13);
             }
         }
         // Android 10-14：仍在 ActivityManagerService
@@ -63,6 +63,8 @@ public class BroadcastFix extends XposedModule {
         }
 
         if (targetMethod != null && argsIndex != null
+                && argsIndex[0] < targetMethod.getParameters().length
+                && argsIndex[1] < targetMethod.getParameters().length
                 && targetMethod.getParameters()[argsIndex[0]].getType() == Intent.class
                 && targetMethod.getParameters()[argsIndex[1]].getType() == int.class) {
             createBroadcastIntentLockedHooker(argsIndex[0], argsIndex[1], targetMethod);
@@ -117,6 +119,38 @@ public class BroadcastFix extends XposedModule {
         }
 
         return (intentIndex == 0 || appOpIndex == 0) ? null : new int[]{intentIndex, appOpIndex};
+    }
+
+    /**
+     * 校验 BroadcastController.broadcastIntentLocked 的 (intent, appOp) 下标是否与签名相符。
+     * Android 15+ 走硬编码下标；下标失效（新系统改了签名）时按参数名兜底，都不行则返回 null，
+     * 由调用方打出"hook 位置查找失败"并跳过。
+     */
+    private static int[] resolveBroadcastArgs(Method targetMethod, int intentIndex, int appOpIndex) {
+        Parameter[] parameters = targetMethod.getParameters();
+        if (intentIndex < parameters.length && appOpIndex < parameters.length
+                && parameters[intentIndex].getType() == Intent.class
+                && parameters[appOpIndex].getType() == int.class) {
+            return new int[]{intentIndex, appOpIndex};
+        }
+        int byNameIntent = -1;
+        int byNameAppOp = -1;
+        for (int i = 0; i < parameters.length; i++) {
+            if ("intent".equals(parameters[i].getName()) && parameters[i].getType() == Intent.class) {
+                byNameIntent = i;
+            }
+            if ("appOp".equals(parameters[i].getName()) && parameters[i].getType() == int.class) {
+                byNameAppOp = i;
+            }
+        }
+        if (byNameIntent < 0 || byNameAppOp < 0) {
+            printLog("broadcastIntentLocked 参数位置无法确定（API " + Build.VERSION.SDK_INT
+                    + "，参数个数 " + parameters.length + "）");
+            return null;
+        }
+        printLog("broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@" + byNameIntent
+                + " appOp@" + byNameAppOp);
+        return new int[]{byNameIntent, byNameAppOp};
     }
 
     /** 返回 candidates 中第一个 int 类型参数下标，都没有则返回 -1。 */

@@ -4,6 +4,7 @@ import android.os.Build;
 import android.service.notification.NotificationListenerService;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 
 import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.libxposed.XC_MethodHook;
@@ -93,6 +94,22 @@ public class KeepNotification extends XposedModule {
         } else {
             throw new NoSuchMethodError();
         }
+
+        // 下标是按系统版本硬编码的猜测值，ROM 或新版本系统可能改变签名。挂错下标会在
+        // system_server 里抛 ClassCastException，或把无关的通知取消一并拦下，因此先按真实
+        // 签名校验；不符就放弃这个 Hook（其它模块不受影响），并打出可供排查的签名信息。
+        Class<?>[] paramTypes = targetMethod.getParameterTypes();
+        int maxArgsIndex = Math.max(pkgArgsIndex, reasonArgsIndex);
+        if (paramTypes.length <= maxArgsIndex
+                || paramTypes[pkgArgsIndex] != String.class
+                || paramTypes[reasonArgsIndex] != int.class) {
+            printLog("cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦截通知："
+                    + "API " + Build.VERSION.SDK_INT + "，参数=" + Arrays.toString(paramTypes)
+                    + "，预期 pkg@" + pkgArgsIndex + "(String) reason@" + reasonArgsIndex + "(int)");
+            return;
+        }
+        printLog("cancelAllNotificationsInt hook 参数：pkg@" + pkgArgsIndex
+                + " reason@" + reasonArgsIndex + "（API " + Build.VERSION.SDK_INT + "）");
 
         final int finalPkgArgsIndex = pkgArgsIndex;
         final int finalReasonArgsIndex = reasonArgsIndex;
