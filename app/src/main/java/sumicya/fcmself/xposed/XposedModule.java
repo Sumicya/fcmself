@@ -1,6 +1,7 @@
 package sumicya.fcmself.xposed;
 
 import android.annotation.SuppressLint;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -10,9 +11,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.UserManager;
-
-import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
 
 import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.libxposed.XC_MethodHook;
@@ -42,6 +40,9 @@ public abstract class XposedModule {
 
     @SuppressLint("StaticFieldLeak")
     protected static Context context = null;
+
+    /** 模块自身通知的渠道 id */
+    private static final String NOTIFICATION_CHANNEL = "fcmself";
 
     /** 本进程内已创建的模块实例（构造顺序即安装顺序） */
     private static final List<XposedModule> instances = new ArrayList<>();
@@ -167,7 +168,7 @@ public abstract class XposedModule {
 
     private static void onUninstallSelf() {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
-        NotificationChannel channel = notificationManager.getNotificationChannel("fcmself");
+        NotificationChannel channel = notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL);
         if (channel != null) {
             notificationManager.deleteNotificationChannel(channel.getId());
         }
@@ -203,25 +204,31 @@ public abstract class XposedModule {
         sendNotification(title, content, null);
     }
 
+    /**
+     * 发一条模块自身的通知（Hook 失败提示、重连诊断等）。
+     *
+     * <p>直接用框架 {@link Notification.Builder}（渠道构造器需 API 26，本模块 minSdk 29），
+     * 不为一个通知把整个 androidx.core 打进 APK。
+     */
     @SuppressLint("MissingPermission")
     protected void sendNotification(String title, String content, PendingIntent pendingIntent) {
         printLog(title, false);
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
         createNotificationChannel(notificationManager);
-        NotificationCompat.Builder notification = new NotificationCompat.Builder(context, "fcmself")
+        Notification.Builder notification = new Notification.Builder(context, NOTIFICATION_CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle("[fcmself]" + title)
-                .setContentText(content)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                .setContentText(content);
         if (pendingIntent != null) {
             notification.setContentIntent(pendingIntent).setAutoCancel(true);
         }
         notificationManager.notify((int) System.currentTimeMillis(), notification.build());
     }
 
-    protected void createNotificationChannel(NotificationManagerCompat notificationManager) {
-        if (notificationManager.getNotificationChannel("fcmself") == null) {
-            NotificationChannel channel = new NotificationChannel("fcmself", "fcmself", NotificationManager.IMPORTANCE_HIGH);
+    protected void createNotificationChannel(NotificationManager notificationManager) {
+        if (notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL) == null) {
+            NotificationChannel channel = new NotificationChannel(
+                    NOTIFICATION_CHANNEL, "fcmself", NotificationManager.IMPORTANCE_HIGH);
             channel.setDescription("[xposed] fcmself");
             notificationManager.createNotificationChannel(channel);
         }

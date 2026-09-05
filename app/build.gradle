@@ -10,8 +10,6 @@ android {
         targetSdkVersion 34
         versionCode 54
         versionName "dev"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -30,10 +28,8 @@ android {
 }
 
 dependencies {
+    // 只依赖 LSPosed 的 API（编译期），运行期由框架提供；
+    // 界面与 androidx 依赖已随设置界面一起移除，APK 里只有本模块自己的类
     compileOnly 'io.github.libxposed:api:101.0.1'
-    implementation 'io.github.libxposed:interface:101.0.0'
-    implementation 'io.github.libxposed:service:101.0.0'
     implementation fileTree(dir: "libs", include: ["*.jar"])
-    // 通知/权限检查等（NotificationCompat、ContextCompat）
-    implementation 'androidx.core:core:1.7.0'
 }
