@@ -86,8 +86,11 @@ Android 16 + ColorOS + LSPosed 2.2.0 的实测结果：核心唤醒、ColorOS �
 
 ### 架构说明
 
-- `libxposed/`：传统 Xposed API 风格的封装层，底层桥接到 LSPosed `XposedInterface`。
-  同一方法重复挂载多个回调时只安装一个底层拦截器，避免回调重复执行。
+- `util/Hooks`：libxposed `hook(Executable).intercept(...)` 的薄封装，只额外提供
+  "原方法执行完再跑一段逻辑"的 after 语义。hook 回调就是 `chain -> {...}`：
+  要跳过原方法就不调用 `chain.proceed()`，直接返回想要的值。
+- `util/Reflect`：类/方法/构造器查找、字段读写、方法调用（各 ROM 私有类的签名
+  只能运行期按名字 + 参数个数找）。
 - `config/FcmselfConfig`：运行期状态，只保留"系统是否启动完成"（system_server 用户解锁后延迟 60 秒才介入广播）。
 - 各 Fix 模块独立 try/catch，单个 Hook 点缺失/失败不影响其它模块。
 
@@ -98,8 +101,7 @@ app/
 ├── src/main/java/sumicya/fcmself/
 │   ├── XposedMain.java              # LSPosed 入口（Hook 模块清单登记处）
 │   ├── config/FcmselfConfig.java    # 运行期状态（仅"系统是否启动完成"）
-│   ├── libxposed/                   # Xposed API 兼容层（桥接 LSPosed）
-│   ├── util/                        # 工具类（日志、Xposed 辅助）
+│   ├── util/                        # 工具类（日志、hook 安装、反射查找、参数下标）
 │   └── xposed/                      # Hook 模块
 │       ├── XposedModule.java        # 模块基类
 │       ├── BroadcastFix.java        # 广播修复
