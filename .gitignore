@@ -1,5 +1,18 @@
-```
-# Compressed files
+# Android / Gradle
+*.iml
+.gradle/
+/local.properties
+.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# 构建产物不入库（APK / 压缩包由 CI 构建并通过 Release 分发）
+*.apk
+*.ap_
+*.aab
 *.zip
 *.gz
 *.tar
@@ -10,7 +23,6 @@
 *.rar
 *.zst
 *.lz4
-*.lzh
 *.cab
 *.arj
 *.rpm
@@ -22,4 +34,3 @@
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```

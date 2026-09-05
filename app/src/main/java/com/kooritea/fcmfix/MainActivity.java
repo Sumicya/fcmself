@@ -12,7 +12,6 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -24,7 +23,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -46,22 +44,43 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import com.kooritea.fcmfix.config.FcmfixConfig;
 import com.kooritea.fcmfix.util.IceboxUtils;
 
+/**
+ * fcmfix 设置界面：
+ * - 管理 FCM 目标应用白名单（写入 LSPosed 远程配置 "config" 组）；
+ * - 开关：阻止自动清除通知 / 唤醒被 IceBox 冻结的应用；
+ * - 菜单：全选含 FCM 的应用、打开 GMS FCM Diagnostics。
+ */
 public class MainActivity extends AppCompatActivity {
+
+    private static final String TAG = "fcmfix.MainActivity";
+    /** 应用列表加载延时（等待权限/包扫描完成） */
+    private static final long APP_LIST_DELAY_MS = 1000L;
+
+    private static final String MENU_DISABLE_AUTO_CLEAN = "阻止应用停止时自动清除通知";
+    private static final String MENU_INCLUDE_ICEBOX = "允许唤醒被冰箱冻结的应用";
+    private static final String MENU_SELECT_ALL_FCM = "全选包含 FCM 的应用";
+    private static final String MENU_OPEN_FCM_DIAGNOSTICS = "打开FCM Diagnostics";
+
     private AppListAdapter appListAdapter;
     private static XposedService xposedService;
-    Set<String> allowList = new HashSet<>();
-    JSONObject config = new JSONObject();
+    private final Set<String> allowList = new HashSet<>();
+    private final JSONObject config = new JSONObject();
+
+    // ------------------------------------------------------------------
+    // 远程配置读写（LSPosed XposedService）
+    // ------------------------------------------------------------------
 
     private SharedPreferences getRemotePreferencesOrNull() {
         if (xposedService == null) {
             return null;
         }
         try {
-            return xposedService.getRemotePreferences("config");
+            return xposedService.getRemotePreferences(FcmfixConfig.REMOTE_PREFS_GROUP);
         } catch (Throwable e) {
-            Log.e("getRemotePreferences", e.toString());
+            Log.e(TAG, "getRemotePreferences: " + e);
             return null;
         }
     }
@@ -88,26 +107,26 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         } catch (Throwable e) {
-            Log.e("initXposedService", e.toString());
+            Log.e(TAG, "initXposedService: " + e);
         }
     }
 
     private void ensureDefaultConfigValues() {
         try {
-            if (!this.config.has("allowList")) {
-                this.config.put("allowList", new JSONArray());
+            if (!this.config.has(FcmfixConfig.KEY_ALLOW_LIST)) {
+                this.config.put(FcmfixConfig.KEY_ALLOW_LIST, new JSONArray());
             }
-            if (!this.config.has("disableAutoCleanNotification")) {
-                this.config.put("disableAutoCleanNotification", false);
+            if (!this.config.has(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION)) {
+                this.config.put(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false);
             }
-            if (!this.config.has("includeIceBoxDisableApp")) {
-                this.config.put("includeIceBoxDisableApp", false);
+            if (!this.config.has(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP)) {
+                this.config.put(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, false);
             }
-            if (!this.config.has("noResponseNotification")) {
-                this.config.put("noResponseNotification", false);
+            if (!this.config.has(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION)) {
+                this.config.put(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION, false);
             }
         } catch (JSONException e) {
-            Log.e("ensureDefaultConfig", e.toString());
+            Log.e(TAG, "ensureDefaultConfig: " + e);
         }
     }
 
@@ -118,23 +137,55 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         this.allowList.clear();
-        this.allowList.addAll(pref.getStringSet("allowList", new HashSet<>()));
+        this.allowList.addAll(pref.getStringSet(FcmfixConfig.KEY_ALLOW_LIST, new HashSet<>()));
         try {
-            this.config.put("allowList", new JSONArray(this.allowList));
-            this.config.put("disableAutoCleanNotification", pref.getBoolean("disableAutoCleanNotification", false));
-            this.config.put("includeIceBoxDisableApp", pref.getBoolean("includeIceBoxDisableApp", false));
-            this.config.put("noResponseNotification", pref.getBoolean("noResponseNotification", false));
+            this.config.put(FcmfixConfig.KEY_ALLOW_LIST, new JSONArray(this.allowList));
+            this.config.put(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION,
+                    pref.getBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false));
+            this.config.put(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP,
+                    pref.getBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, false));
+            this.config.put(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION,
+                    pref.getBoolean(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION, false));
         } catch (JSONException e) {
-            Log.e("loadRemoteConfig", e.toString());
+            Log.e(TAG, "loadRemoteConfig: " + e);
         }
     }
+
+    private void updateConfig() {
+        try {
+            SharedPreferences pref = getRemotePreferencesOrNull();
+            if (pref == null) {
+                throw new IllegalStateException("XposedService 未连接，无法写入远程配置");
+            }
+            this.config.put(FcmfixConfig.KEY_ALLOW_LIST, new JSONArray(this.allowList));
+            boolean saved = pref.edit()
+                    .putBoolean("init", true)
+                    .putStringSet(FcmfixConfig.KEY_ALLOW_LIST, new HashSet<>(this.allowList))
+                    .putBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, this.config.getBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION))
+                    .putBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, this.config.getBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP))
+                    .putBoolean(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION, this.config.getBoolean(FcmfixConfig.KEY_NO_RESPONSE_NOTIFICATION))
+                    .commit();
+            if (!saved) {
+                throw new IllegalStateException("配置写入失败");
+            }
+            // 通知各进程（system_server 等）重新加载配置
+            this.sendBroadcast(new Intent(FcmfixConfig.ACTION_UPDATE_CONFIG));
+        } catch (Throwable e) {
+            Log.e(TAG, "updateConfig: " + e);
+            new AlertDialog.Builder(this).setTitle("更新配置文件失败").setMessage(e.getMessage()).show();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 应用列表
+    // ------------------------------------------------------------------
 
     private class AppInfo {
         public String name;
         public String packageName;
         public Drawable icon;
-        public Boolean isAllow = false;
-        public Boolean includeFcm = false;
+        public boolean isAllow = false;
+        public boolean includeFcm = false;
 
         public AppInfo(PackageInfo packageInfo) {
             this.name = packageInfo.applicationInfo.loadLabel(getPackageManager()).toString();
@@ -143,9 +194,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private class AppListAdapter  extends RecyclerView.Adapter<AppListAdapter.ViewHolder> {
+    private class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.ViewHolder> {
 
         private final List<AppInfo> mAppList;
+
         class ViewHolder extends RecyclerView.ViewHolder {
             View appView;
             ImageView icon;
@@ -165,66 +217,53 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        public AppListAdapter(){
+        public AppListAdapter() {
             Set<String> allowListSet = new HashSet<>(allowList);
-            allowListSet.containsAll(allowList);
-            List<AppInfo> _allowList = new ArrayList<>();
-            List<AppInfo> _notAllowList = new ArrayList<>();
-            List<AppInfo> _notFoundFcm = new ArrayList<>();
+            List<AppInfo> allowApps = new ArrayList<>();
+            List<AppInfo> notAllowApps = new ArrayList<>();
+            List<AppInfo> noFcmApps = new ArrayList<>();
             PackageManager packageManager = getPackageManager();
-            for(PackageInfo packageInfo : packageManager.getInstalledPackages(PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS | PackageManager.MATCH_UNINSTALLED_PACKAGES)) {
-                boolean flag = false;
-                AppInfo appInfo = new AppInfo(packageInfo);
-                if (packageInfo.receivers != null) {
-                    for (ActivityInfo  receiverInfo : packageInfo.receivers ){
-                        if(receiverInfo.name.equals("com.google.firebase.iid.FirebaseInstanceIdReceiver") || receiverInfo.name.equals("com.google.android.gms.measurement.AppMeasurementReceiver")){
-                            flag = true;
-                            appInfo.includeFcm = true;
-                            break;
-                        }
-                    }
-                }else{
+            for (PackageInfo packageInfo : packageManager.getInstalledPackages(
+                    PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS | PackageManager.MATCH_UNINSTALLED_PACKAGES)) {
+                if (packageInfo.receivers == null) {
                     continue;
                 }
-                if(allowListSet.contains(appInfo.packageName)){
+                AppInfo appInfo = new AppInfo(packageInfo);
+                for (ActivityInfo receiverInfo : packageInfo.receivers) {
+                    // 含 Firebase 推送接收器的应用才可能使用 FCM
+                    if (receiverInfo.name.equals("com.google.firebase.iid.FirebaseInstanceIdReceiver")
+                            || receiverInfo.name.equals("com.google.android.gms.measurement.AppMeasurementReceiver")) {
+                        appInfo.includeFcm = true;
+                        break;
+                    }
+                }
+                if (allowListSet.contains(appInfo.packageName)) {
                     appInfo.isAllow = true;
-                    _allowList.add(appInfo);
-                }else{
-                    if(flag){
-                        _notAllowList.add(appInfo);
-                    }else{
-                        _notFoundFcm.add(appInfo);
-                    }
+                    allowApps.add(appInfo);
+                } else if (appInfo.includeFcm) {
+                    notAllowApps.add(appInfo);
+                } else {
+                    noFcmApps.add(appInfo);
                 }
             }
-            class SortName implements Comparator<AppInfo> {
-                final Collator localCompare = Collator.getInstance(Locale.getDefault());
-                @Override
-                public int compare(AppInfo a1, AppInfo a2) {
-                    if(localCompare.compare(a1.name,a2.name)>0){
-                        return 1;
-                    }else if (localCompare.compare(a1.name, a2.name) < 0) {
-                        return -1;
-                    }
-                    return 0;
-                }
-            }
-            final SortName sortName = new SortName();
-            _allowList.sort(sortName);
-            _notAllowList.sort(sortName);
-            _notFoundFcm.sort(sortName);
-            _allowList.addAll(_notAllowList);
-            _allowList.addAll(_notFoundFcm);
-            this.mAppList = _allowList;
-            if(_allowList.size() == 0 || _allowList.isEmpty() ||(_allowList.size() == 1 && "com.kooritea.fcmfix".equals(_allowList.get(0).packageName))){
+            final Comparator<AppInfo> sortName = (a1, a2) ->
+                    Collator.getInstance(Locale.getDefault()).compare(a1.name, a2.name);
+            allowApps.sort(sortName);
+            notAllowApps.sort(sortName);
+            noFcmApps.sort(sortName);
+            allowApps.addAll(notAllowApps);
+            allowApps.addAll(noFcmApps);
+            this.mAppList = allowApps;
+            if (mAppList.isEmpty()
+                    || (mAppList.size() == 1 && FcmfixConfig.SELF_PACKAGE.equals(mAppList.get(0).packageName))) {
                 new AlertDialog.Builder(MainActivity.this)
                         .setTitle("请在系统设置中授予读取应用列表权限")
                         .setMessage("或直接编辑" + getApplicationContext().getFilesDir().getAbsolutePath() + "/config.json(需重启生效)")
-                        .setPositiveButton("确定", (dialog, which) -> {})
+                        .setPositiveButton("确定", (dialog, which) -> {
+                        })
                         .show();
             }
         }
-
 
         @SuppressLint("NotifyDataSetChanged")
         @NonNull
@@ -236,12 +275,12 @@ public class MainActivity extends AppCompatActivity {
             holder.appView.setOnClickListener(v -> {
                 int position = holder.getBindingAdapterPosition();
                 AppInfo appInfo = mAppList.get(position);
-                if(appInfo.isAllow){
-                    deleteAppInAllowList(appInfo.packageName);
-                }else{
-                    addAppInAllowList(appInfo.packageName);
-                }
                 appInfo.isAllow = !appInfo.isAllow;
+                if (appInfo.isAllow) {
+                    addAppInAllowList(appInfo.packageName);
+                } else {
+                    deleteAppInAllowList(appInfo.packageName);
+                }
                 appListAdapter.notifyDataSetChanged();
             });
             return holder;
@@ -263,6 +302,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void addAppInAllowList(String packageName) {
+        this.allowList.add(packageName);
+        this.updateConfig();
+    }
+
+    private void deleteAppInAllowList(String packageName) {
+        this.allowList.remove(packageName);
+        this.updateConfig();
+    }
+
+    // ------------------------------------------------------------------
+    // Activity
+    // ------------------------------------------------------------------
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -285,61 +337,15 @@ public class MainActivity extends AppCompatActivity {
             recyclerView.setAdapter(appListAdapter);
             findViewById(R.id.progress_bar).setVisibility(View.GONE);
             recyclerView.setVisibility(View.VISIBLE);
-        }, 1000);
-    }
-
-    @Nullable
-    @Override
-    public View onCreateView(@Nullable View parent, @NonNull String name, @NonNull Context context, @NonNull AttributeSet attrs) {
-        return super.onCreateView(parent, name, context, attrs);
-    }
-
-    private void addAppInAllowList(String packageName){
-        this.allowList.add(packageName);
-        this.updateConfig();
-    }
-    private void deleteAppInAllowList(String packageName){
-        this.allowList.remove(packageName);
-        this.updateConfig();
-    }
-
-    private void updateConfig(){
-        try {
-            SharedPreferences pref = getRemotePreferencesOrNull();
-            if (pref == null) {
-                throw new IllegalStateException("XposedService 未连接，无法写入远程配置");
-            }
-            this.config.put("allowList", new JSONArray(this.allowList));
-            boolean saved = pref.edit()
-                    .putBoolean("init", true)
-                    .putStringSet("allowList", new HashSet<>(this.allowList))
-                    .putBoolean("disableAutoCleanNotification", this.config.getBoolean("disableAutoCleanNotification"))
-                    .putBoolean("includeIceBoxDisableApp", this.config.getBoolean("includeIceBoxDisableApp"))
-                    .putBoolean("noResponseNotification", this.config.getBoolean("noResponseNotification"))
-                    .commit();
-            if (!saved) {
-                throw new IllegalStateException("配置写入失败");
-            }
-            this.sendBroadcast(new Intent("com.kooritea.fcmfix.update.config"));
-        } catch (Throwable e) {
-            Log.e("updateConfig",e.toString());
-            new AlertDialog.Builder(this).setTitle("更新配置文件失败").setMessage(e.getMessage()).show();
-        }
+        }, APP_LIST_DELAY_MS);
     }
 
     @Override
-    public boolean onCreateOptionsMenu (Menu menu){
-//      menu.add("隐藏启动器图标").setCheckable(true);
-
-        menu.add("阻止应用停止时自动清除通知").setCheckable(true);
-
-        menu.add("允许唤醒被冰箱冻结的应用").setCheckable(true);
-
-//        menu.add("目标无响应时代发提示通知").setCheckable(true);
-
-        menu.add("全选包含 FCM 的应用");
-
-        menu.add("打开FCM Diagnostics");
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add(MENU_DISABLE_AUTO_CLEAN).setCheckable(true);
+        menu.add(MENU_INCLUDE_ICEBOX).setCheckable(true);
+        menu.add(MENU_SELECT_ALL_FCM);
+        menu.add(MENU_OPEN_FCM_DIAGNOSTICS);
         return true;
     }
 
@@ -348,35 +354,24 @@ public class MainActivity extends AppCompatActivity {
     public final boolean onPrepareOptionsMenu(Menu menu) {
         for (int i = 0; i < menu.size(); i++) {
             MenuItem item = menu.getItem(i);
-            if("隐藏启动器图标".equals(item.getTitle())){
-                PackageManager packageManager = getPackageManager();
-                item.setChecked(packageManager.getComponentEnabledSetting(new ComponentName("com.kooritea.fcmfix", "com.kooritea.fcmfix.Home")) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
-            }
-            if("阻止应用停止时自动清除通知".equals(item.getTitle())){
+            if (MENU_DISABLE_AUTO_CLEAN.equals(item.getTitle())) {
                 try {
-                    item.setChecked(this.config.getBoolean("disableAutoCleanNotification"));
+                    item.setChecked(this.config.getBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION));
                 } catch (JSONException e) {
                     item.setChecked(false);
                 }
             }
-            if("允许唤醒被冰箱冻结的应用".equals(item.getTitle())){
+            if (MENU_INCLUDE_ICEBOX.equals(item.getTitle())) {
                 try {
-                    item.setChecked(this.config.getBoolean("includeIceBoxDisableApp"));
+                    item.setChecked(this.config.getBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP));
                 } catch (JSONException e) {
                     item.setChecked(false);
                 }
             }
-            if("目标无响应时代发提示通知".equals(item.getTitle())){
-                try {
-                    item.setChecked(this.config.getBoolean("noResponseNotification"));
-                } catch (JSONException e) {
-                    item.setChecked(false);
-                }
-            }
-            if("全选包含 FCM 的应用".equals(item.getTitle())){
+            if (MENU_SELECT_ALL_FCM.equals(item.getTitle())) {
                 item.setOnMenuItemClickListener(menuItem -> {
-                    for(AppInfo appInfo : appListAdapter.mAppList){
-                        if(appInfo.includeFcm){
+                    for (AppInfo appInfo : appListAdapter.mAppList) {
+                        if (appInfo.includeFcm) {
                             addAppInAllowList(appInfo.packageName);
                             appInfo.isAllow = true;
                         }
@@ -385,12 +380,12 @@ public class MainActivity extends AppCompatActivity {
                     return false;
                 });
             }
-            if("打开FCM Diagnostics".equals(item.getTitle())){
+            if (MENU_OPEN_FCM_DIAGNOSTICS.equals(item.getTitle())) {
                 item.setOnMenuItemClickListener(menuItem -> {
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.setPackage("com.google.android.gms");
-                    intent.setComponent(new ComponentName("com.google.android.gms","com.google.android.gms.gcm.GcmDiagnostics"));
+                    intent.setComponent(new ComponentName("com.google.android.gms", "com.google.android.gms.gcm.GcmDiagnostics"));
                     startActivity(intent);
                     return false;
                 });
@@ -401,36 +396,21 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public final boolean onOptionsItemSelected(MenuItem menuItem) {
-        if(menuItem.getTitle().equals("隐藏启动器图标")){
-            PackageManager packageManager = getPackageManager();
-            packageManager.setComponentEnabledSetting(
-                    new ComponentName("com.kooritea.fcmfix", "com.kooritea.fcmfix.Home"),
-                    menuItem.isChecked() ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                    PackageManager.DONT_KILL_APP
-            );
-        }
-        if(menuItem.getTitle().equals("阻止应用停止时自动清除通知")){
+        String title = menuItem.getTitle().toString();
+        if (MENU_DISABLE_AUTO_CLEAN.equals(title)) {
             try {
-                this.config.put("disableAutoCleanNotification", !menuItem.isChecked());
+                this.config.put(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, !menuItem.isChecked());
                 this.updateConfig();
             } catch (JSONException e) {
-                Log.e("onOptionsItemSelected",e.toString());
+                Log.e(TAG, "onOptionsItemSelected: " + e);
             }
         }
-        if(menuItem.getTitle().equals("允许唤醒被冰箱冻结的应用")){
+        if (MENU_INCLUDE_ICEBOX.equals(title)) {
             try {
-                this.config.put("includeIceBoxDisableApp", !menuItem.isChecked());
+                this.config.put(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, !menuItem.isChecked());
                 this.updateConfig();
             } catch (JSONException e) {
-                Log.e("onOptionsItemSelected",e.toString());
-            }
-        }
-        if(menuItem.getTitle().equals("目标无响应时代发提示通知")){
-            try {
-                this.config.put("noResponseNotification", !menuItem.isChecked());
-                this.updateConfig();
-            } catch (JSONException e) {
-                Log.e("onOptionsItemSelected",e.toString());
+                Log.e(TAG, "onOptionsItemSelected: " + e);
             }
         }
         return true;

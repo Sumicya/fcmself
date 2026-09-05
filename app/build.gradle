@@ -8,10 +8,23 @@ android {
         applicationId "com.kooritea.fcmfix"
         minSdkVersion 29
         targetSdkVersion 34
-        versionCode 53
+        versionCode 54
         versionName "dev"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // 双变体：
+    //  - full：完整功能，含设置 UI（白名单管理等）
+    //  - lite：无 UI 的精简模块，白名单来自模块共享数据目录的 allowlist.txt（见 README）
+    flavorDimensions "variant"
+    productFlavors {
+        full {
+            dimension "variant"
+        }
+        lite {
+            dimension "variant"
+        }
     }
 
     buildTypes {
@@ -24,6 +37,17 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    buildFeatures {
+        buildConfig = true
+    }
+    sourceSets {
+        lite {
+            java {
+                // lite 变体不含设置界面
+                exclude 'com/kooritea/fcmfix/MainActivity.java'
+            }
+        }
+    }
 
     lint {
         checkReleaseBuilds = false
@@ -35,6 +59,9 @@ dependencies {
     implementation 'io.github.libxposed:interface:101.0.0'
     implementation 'io.github.libxposed:service:101.0.0'
     implementation fileTree(dir: "libs", include: ["*.jar"])
-    implementation 'androidx.appcompat:appcompat:1.5.1'
-    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+    // 两个变体都需要 androidx.core（ContextCompat 等）
+    implementation 'androidx.core:core:1.7.0'
+    // 仅 full 需要 UI 依赖
+    fullImplementation 'androidx.appcompat:appcompat:1.5.1'
+    fullImplementation 'androidx.recyclerview:recyclerview:1.2.1'
 }

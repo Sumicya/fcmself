@@ -1,0 +1,5 @@
+minApiVersion=100
+targetApiVersion=101
+# lite 变体：固定作用域（无 UI 可选），见 scope.list
+staticScope=true
+exceptionMode=protective

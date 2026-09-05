@@ -2,6 +2,12 @@ package com.kooritea.fcmfix.libxposed;
 
 import java.lang.reflect.Member;
 
+/**
+ * 传统 Xposed 风格的 Hook 回调。
+ * 在 {@link #beforeHookedMethod} 中调用 {@link MethodHookParam#setResult} 或
+ * {@link MethodHookParam#setThrowable} 可阻止原方法执行（return early），
+ * 此时 after 回调仍会执行（按 before 执行顺序的逆序）。
+ */
 public abstract class XC_MethodHook {
 
     public static class MethodHookParam {
@@ -47,20 +53,22 @@ public abstract class XC_MethodHook {
             return returnEarly;
         }
 
-        public void resetReturnEarly() {
-            this.returnEarly = false;
+        void resetReturnEarly() {
+            returnEarly = false;
         }
     }
 
     public class Unhook {
-        private final XposedBridge.HookHandleWrapper handle;
+        private final Member member;
+        private final XC_MethodHook callback;
 
-        Unhook(XposedBridge.HookHandleWrapper handle) {
-            this.handle = handle;
+        Unhook(Member member, XC_MethodHook callback) {
+            this.member = member;
+            this.callback = callback;
         }
 
         public void unhook() {
-            handle.unhook();
+            XposedBridge.unhook(member, callback);
         }
     }
 

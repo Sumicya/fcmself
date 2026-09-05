@@ -3,9 +3,8 @@ package com.kooritea.fcmfix.libxposed;
 import android.content.SharedPreferences;
 import android.util.Log;
 
-import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
+import java.lang.reflect.Executable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
@@ -17,10 +16,27 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import io.github.libxposed.api.XposedInterface;
 
+/**
+ * 传统 Xposed API（XposedBridge/XposedHelpers）风格的封装，
+ * 底层桥接到 LSPosed 的 {@link XposedInterface}。
+ *
+ * <p>实现要点：
+ * <ul>
+ *   <li>同一 {@link Member} 只安装一个 LSPosed 拦截器，回调保存在共享列表中。
+ *       若对同一方法重复调用 {@link #hookMethod}，不会出现"每个拦截器都遍历完整回调列表"
+ *       导致的重复执行问题。</li>
+ *   <li>before 回调中调用 {@link XC_MethodHook.MethodHookParam#setResult} 后跳过
+ *       {@code chain.proceed()}，after 回调按 before 执行的逆序执行。</li>
+ * </ul>
+ */
 public final class XposedBridge {
 
     private static XposedInterface xposedInterface;
+
+    /** member -> 该成员上挂载的所有回调（按挂载顺序） */
     private static final Map<Member, List<XC_MethodHook>> HOOKS = new ConcurrentHashMap<>();
+    /** member -> 已安装的 LSPosed 拦截句柄（每个成员至多一个） */
+    private static final Map<Member, XposedInterface.HookHandle> HANDLES = new ConcurrentHashMap<>();
 
     private XposedBridge() {
     }
@@ -38,55 +54,112 @@ public final class XposedBridge {
         return xposedInterface.getRemotePreferences(group);
     }
 
+    /** 列出模块共享数据目录中的文件（无该能力时抛异常） */
+    public static String[] listRemoteFiles() {
+        ensureInit();
+        return xposedInterface.listRemoteFiles();
+    }
+
+    /** 只读打开模块共享数据目录中的文件 */
+    public static java.io.InputStream openRemoteFile(String name) throws java.io.FileNotFoundException {
+        ensureInit();
+        android.os.ParcelFileDescriptor pfd = xposedInterface.openRemoteFile(name);
+        return new android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd);
+    }
+
     public static XC_MethodHook.Unhook hookMethod(Member member, XC_MethodHook callback) {
         ensureInit();
         if (!(member instanceof Method) && !(member instanceof Constructor<?>)) {
             throw new IllegalArgumentException("Only Method/Constructor can be hooked");
         }
 
-        HOOKS.computeIfAbsent(member, k -> new ArrayList<>()).add(callback);
+        XposedInterface.HookHandle handle;
+        List<XC_MethodHook> callbacks;
+        synchronized (HOOKS) {
+            handle = HANDLES.get(member);
+            if (handle == null) {
+                handle = xposedInterface.hook((Executable) member)
+                        .intercept(chain -> invokeChain(member, chain));
+                HANDLES.put(member, handle);
+            }
+            List<XC_MethodHook> list = HOOKS.get(member);
+            if (list == null) {
+                list = new ArrayList<>();
+                HOOKS.put(member, list);
+            }
+            list.add(callback);
+            callbacks = list;
+        }
 
-        XposedInterface.HookHandle handle = xposedInterface.hook((java.lang.reflect.Executable) member)
-                .intercept(chain -> {
-                    XC_MethodHook.MethodHookParam param = new XC_MethodHook.MethodHookParam();
-                    param.method = (Member) chain.getExecutable();
-                    param.thisObject = chain.getThisObject();
-                    param.args = chain.getArgs().toArray(new Object[0]);
+        return callback.new Unhook(member, callback);
+    }
 
-                    List<XC_MethodHook> callbacks = HOOKS.get(member);
-                    if (callbacks == null || callbacks.isEmpty()) {
-                        return chain.proceed(param.args);
-                    }
+    /**
+     * 单次调用链上执行所有已挂载回调。
+     * 回调列表是共享的：读取时做一次快照，避免执行期间被 unhook 修改。
+     */
+    private static Object invokeChain(Member member, XposedInterface.Chain chain) throws Throwable {
+        XC_MethodHook.MethodHookParam param = new XC_MethodHook.MethodHookParam();
+        param.method = (Member) chain.getExecutable();
+        param.thisObject = chain.getThisObject();
+        param.args = chain.getArgs().toArray(new Object[0]);
 
-                    int beforeCount = 0;
-                    for (XC_MethodHook hook : callbacks) {
-                        hook.beforeHookedMethod(param);
-                        beforeCount++;
-                        if (param.isReturnEarly()) {
-                            break;
-                        }
-                    }
+        List<XC_MethodHook> callbacks;
+        synchronized (HOOKS) {
+            List<XC_MethodHook> list = HOOKS.get(member);
+            callbacks = (list == null || list.isEmpty()) ? null : new ArrayList<>(list);
+        }
+        if (callbacks == null) {
+            return chain.proceed(param.args);
+        }
 
-                    if (!param.isReturnEarly()) {
-                        try {
-                            param.setResult(chain.proceed(param.args));
-                        } catch (Throwable t) {
-                            param.setThrowable(t);
-                        }
-                        param.resetReturnEarly();
-                    }
+        int beforeCount = 0;
+        for (XC_MethodHook hook : callbacks) {
+            hook.beforeHookedMethod(param);
+            beforeCount++;
+            if (param.isReturnEarly()) {
+                break;
+            }
+        }
 
-                    for (int i = beforeCount - 1; i >= 0; i--) {
-                        callbacks.get(i).afterHookedMethod(param);
-                    }
+        if (!param.isReturnEarly()) {
+            try {
+                param.setResult(chain.proceed(param.args));
+            } catch (Throwable t) {
+                param.setThrowable(t);
+            }
+            param.resetReturnEarly();
+        }
 
-                    if (param.hasThrowable()) {
-                        throw param.getThrowable();
-                    }
-                    return param.getResult();
-                });
+        for (int i = beforeCount - 1; i >= 0; i--) {
+            callbacks.get(i).afterHookedMethod(param);
+        }
 
-        return callback.new Unhook(new HookHandleWrapper(member, callback, handle));
+        if (param.hasThrowable()) {
+            throw param.getThrowable();
+        }
+        return param.getResult();
+    }
+
+    /**
+     * 移除单个回调；当该成员上不再有回调时，卸载底层的 LSPosed 拦截器。
+     */
+    static void unhook(Member member, XC_MethodHook callback) {
+        XposedInterface.HookHandle handle;
+        synchronized (HOOKS) {
+            List<XC_MethodHook> list = HOOKS.get(member);
+            handle = null;
+            if (list != null) {
+                list.remove(callback);
+                if (list.isEmpty()) {
+                    HOOKS.remove(member);
+                    handle = HANDLES.remove(member);
+                }
+            }
+        }
+        if (handle != null) {
+            handle.unhook();
+        }
     }
 
     public static Object invokeOriginalMethod(Member method, Object thisObject, Object[] args) throws Throwable {
@@ -111,26 +184,6 @@ public final class XposedBridge {
             }
         }
         throw new IllegalArgumentException("Unsupported member type: " + method);
-    }
-
-    static final class HookHandleWrapper {
-        private final Member member;
-        private final XC_MethodHook callback;
-        private final XposedInterface.HookHandle handle;
-
-        HookHandleWrapper(Member member, XC_MethodHook callback, XposedInterface.HookHandle handle) {
-            this.member = member;
-            this.callback = callback;
-            this.handle = handle;
-        }
-
-        void unhook() {
-            List<XC_MethodHook> list = HOOKS.get(member);
-            if (list != null) {
-                list.remove(callback);
-            }
-            handle.unhook();
-        }
     }
 
     private static void ensureInit() {
