@@ -4,7 +4,6 @@ import android.util.Log;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -157,30 +156,6 @@ public final class XposedBridge {
         if (handle != null) {
             handle.unhook();
         }
-    }
-
-    public static Object invokeOriginalMethod(Member method, Object thisObject, Object[] args) throws Throwable {
-        ensureInit();
-        if (method instanceof Method) {
-            Method m = (Method) method;
-            XposedInterface.Invoker<?, Method> invoker = xposedInterface.getInvoker(m);
-            invoker.setType(XposedInterface.Invoker.Type.ORIGIN);
-            try {
-                return invoker.invoke(thisObject, args);
-            } catch (InvocationTargetException e) {
-                throw e.getCause();
-            }
-        }
-        if (method instanceof Constructor<?>) {
-            Constructor<?> c = (Constructor<?>) method;
-            XposedInterface.CtorInvoker<?> invoker = xposedInterface.getInvoker(c);
-            try {
-                return invoker.newInstance(args);
-            } catch (InvocationTargetException e) {
-                throw e.getCause();
-            }
-        }
-        throw new IllegalArgumentException("Unsupported member type: " + method);
     }
 
     private static void ensureInit() {

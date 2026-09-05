@@ -75,8 +75,6 @@ MIUI/HyperOS 专有的 Hook 点会打印 `No Such Method/Class`，在非小米�
 原先由设置界面控制的开关现在都固定生效：
 
 - **阻止应用停止时自动清除通知**：始终生效
-- **唤醒被 IceBox 冻结的应用**：检测到已安装 IceBox（`com.catchingnow.icebox`）时才走
-  "解冻 → 等待 → 补发广播"流程；没装 IceBox 的用户不受影响
 - **重连修复**：在 GMS 的 FCM Diagnostics 页面注入 `RECONNECT` 按钮（原先还有一个"打开 fcmself"
   按钮，随设置界面一起移除）
 
@@ -118,7 +116,7 @@ app/
 │   ├── XposedMain.java              # LSPosed 入口（Hook 模块清单登记处）
 │   ├── config/FcmselfConfig.java    # 运行期状态（仅"系统是否启动完成"）
 │   ├── libxposed/                   # Xposed API 兼容层（桥接 LSPosed）
-│   ├── util/                        # 工具类（日志、IceBox 等）
+│   ├── util/                        # 工具类（日志、Xposed 辅助）
 │   └── xposed/                      # Hook 模块
 │       ├── XposedModule.java        # 模块基类
 │       ├── BroadcastFix.java        # 广播修复
@@ -182,7 +180,6 @@ pkg install -y openjdk-21 apksigner
 
 1. 本模块仅用于学习研究目的
 2. 不同 ROM 版本可能需要不同的 Hook 点
-3. 部分功能需要配合其他工具（如 IceBox）使用
 4. ColorOS 15 已测试通过，其他版本请自行验证
 
 ## 许可证

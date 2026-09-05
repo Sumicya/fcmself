@@ -9,7 +9,6 @@ import java.lang.reflect.Parameter;
 import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.libxposed.XC_MethodHook;
 import sumicya.fcmself.libxposed.XposedBridge;
-import sumicya.fcmself.util.IceboxUtils;
 import sumicya.fcmself.util.XposedUtils;
 
 /**
@@ -24,7 +23,6 @@ import sumicya.fcmself.util.XposedUtils;
  *    自动定位 intent 与 appOp 参数下标）；
  * 2. 检测到 FCM Intent 且目标在白名单时，强制添加 FLAG_INCLUDE_STOPPED_PACKAGES
  *    并把 appOp 从 -1 改为 11（正常）；
- * 3. 目标被 IceBox 冻结且开启对应开关时：先解冻、再补发广播；
  * 4. ColorOS：调用 OplusProxyFix.unfreeze 解除 OplusProxy 冻结。
  */
 public class BroadcastFix extends XposedModule {
@@ -190,14 +188,7 @@ public class BroadcastFix extends XposedModule {
                             methodHookParam.args[finalAppOp_args_index] = 11;
                         }
                         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-                        if (IceboxUtils.isInstalled(context) && !IceboxUtils.isAppEnabled(context, target)) {
-                            // 目标被 IceBox 冻结：先解冻等待，再重新走原方法补发广播
-                            printLog("Waiting for IceBox to activate the app: " + target, true);
-                            methodHookParam.setResult(false);
-                            new Thread(() -> resumeAfterIceboxActivated(methodHookParam, method, target)).start();
-                        } else {
-                            printLog("Add FLAG_INCLUDE_STOPPED_PACKAGES: " + target, true);
-                        }
+                        printLog("Add FLAG_INCLUDE_STOPPED_PACKAGES: " + target, true);
                         // cos15 解冻 OplusProxy
                         OplusProxyFix.unfreeze(target);
                     }
@@ -206,31 +197,4 @@ public class BroadcastFix extends XposedModule {
         });
     }
 
-    /**
-     * IceBox 冻结目标的补发逻辑：
-     * 激活应用（最长 30s）后，用当前参数重新调用一次原 broadcastIntentLocked。
-     */
-    private void resumeAfterIceboxActivated(XC_MethodHook.MethodHookParam methodHookParam, Method method, String target) {
-        IceboxUtils.activeApp(context, target);
-        for (int i = 0; i < 300; i++) {
-            if (IceboxUtils.isAppEnabled(context, target)) {
-                break;
-            }
-            try {
-                Thread.sleep(100);
-            } catch (Throwable e) {
-                printLog("Waiting for IceBox interrupted: " + target + " " + e.getMessage(), true);
-            }
-        }
-        try {
-            if (IceboxUtils.isAppEnabled(context, target)) {
-                printLog("Resend broadcast after IceBox activated: " + target, true);
-            } else {
-                printLog("Waiting for IceBox to activate the app timed out: " + target, true);
-            }
-            XposedBridge.invokeOriginalMethod(methodHookParam.method, methodHookParam.thisObject, methodHookParam.args);
-        } catch (Throwable e) {
-            printLog("Resend broadcast failed: " + target + " " + e.getMessage(), true);
-        }
-    }
 }

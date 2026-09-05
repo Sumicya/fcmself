@@ -7,8 +7,6 @@
 
     <!-- 模块自身发通知（Hook 失败提示、重连诊断） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- 配合 IceBox 解冻被冻结的目标应用（未安装 IceBox 时不会走到） -->
-    <uses-permission android:name="com.catchingnow.icebox.SDK" />
 
     <application
         android:allowBackup="true"
