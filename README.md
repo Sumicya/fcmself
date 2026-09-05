@@ -117,14 +117,27 @@ app/
 # 输出：app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
-CI（`.github/workflows/android.yml`）在 push 到 master 时构建、签名并创建 Release，
-`app/build.gradle` 有变更时额外推送到 LSPosed 模块仓库。
+CI（`.github/workflows/android.yml`）**不使用任何 secrets**，只做编译并上传两个产物：
 
-> **CI 配置需要同步更新**：改成单变体后，签名产物是 `app-release-unsigned-signed.apk`，
-> 现有 workflow 里的 `mv app-full-release-unsigned-signed.apk ...` / `mv app-lite-...` 会失败。
+| 产物 | 说明 |
+| --- | --- |
+| `fcmself-<版本>-debug-signed.apk` | debug 签名，可直接安装测试 |
+| `fcmself-<版本>-unsigned.apk` | release 未签名，本地签完再装 |
+
+签名在本地完成（Termux 一条命令）：
+
+```bash
+pkg install -y openjdk-21 apksigner
+./scripts/sign-apk.sh <未签名.apk>
+```
+
+详见 [`docs/build-and-sign-termux.md`](docs/build-and-sign-termux.md)。
+
+> **CI 配置需要同步更新**：改成单变体后产物名是 `app-release-unsigned.apk`，
+> 现有 workflow 里硬编码的 `mv app-full-release-unsigned-signed.apk ...` / `mv app-lite-...` 会直接失败。
 > 改好的完整配置见 [`docs/android.yml.suggested`](docs/android.yml.suggested)，
 > 执行 `cp docs/android.yml.suggested .github/workflows/android.yml` 即可
-> （该文件改动无法从本分支推送：GitHub App 缺少 `workflows` 权限）。
+> （该文件改动无法从本分支推送：Arena 侧的 GitHub App 缺少 `workflows` 权限）。
 
 ## 升级说明
 
