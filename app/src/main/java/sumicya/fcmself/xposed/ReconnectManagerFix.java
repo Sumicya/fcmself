@@ -21,8 +21,9 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import sumicya.fcmself.libxposed.XC_MethodHook;
 import sumicya.fcmself.libxposed.XposedBridge;
@@ -55,6 +56,22 @@ import sumicya.fcmself.util.XposedUtils;
  * 没有写入入口、始终为 0（{@code >1000} 才生效），已连同相关分支一起移除。
  */
 public class ReconnectManagerFix extends XposedModule {
+
+    /**
+     * 负倒计时检测共用的调度器。
+     *
+     * <p>原先每次 setTimeout 都 {@code new Timer(...)}，即每次心跳/重连都新建一个线程
+     * （任务结束才 cancel）。改用一个守护线程的共享调度器后，线程数与消息量解耦。
+     */
+    private static final ScheduledExecutorService NEGATIVE_COUNTDOWN_SCHEDULER =
+            Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "fcmself-countdown");
+                thread.setDaemon(true);
+                return thread;
+            });
+
+    /** setTimeout 之后多久复查倒计时（ms） */
+    private static final long COUNTDOWN_CHECK_DELAY_MS = 5000L;
 
     private static final String PREF_NAME = "fcmself_config";
     private static final String PREF_IS_INIT = "isInit";
@@ -229,18 +246,14 @@ public class ReconnectManagerFix extends XposedModule {
                         }
                     }
                     final Field finalMaxField = maxField;
-                    Timer timer = new Timer("ReconnectManagerFix");
-                    timer.schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            long nextConnectionTime = XposedHelpers.getLongField(param.thisObject, finalMaxField.getName());
-                            if (nextConnectionTime != 0 && nextConnectionTime - SystemClock.elapsedRealtime() < NEGATIVE_COUNTDOWN_THRESHOLD_MS) {
-                                context.sendBroadcast(new Intent("com.google.android.intent.action.GCM_RECONNECT"));
-                                printLog("Send broadcast GCM_RECONNECT", true);
-                            }
-                            timer.cancel();
+                    NEGATIVE_COUNTDOWN_SCHEDULER.schedule(() -> {
+                        long nextConnectionTime = XposedHelpers.getLongField(param.thisObject, finalMaxField.getName());
+                        if (nextConnectionTime != 0
+                                && nextConnectionTime - SystemClock.elapsedRealtime() < NEGATIVE_COUNTDOWN_THRESHOLD_MS) {
+                            context.sendBroadcast(new Intent("com.google.android.intent.action.GCM_RECONNECT"));
+                            printLog("Send broadcast GCM_RECONNECT", true);
                         }
-                    }, (long) param.args[0] + 5000);
+                    }, (long) param.args[0] + COUNTDOWN_CHECK_DELAY_MS, TimeUnit.MILLISECONDS);
                 }
             }
         });

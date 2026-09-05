@@ -1,12 +1,16 @@
 package sumicya.fcmself.xposed;
 
 import android.content.pm.PackageManager;
+import android.os.SystemClock;
 import android.os.WorkSource;
 
 import sumicya.fcmself.libxposed.XC_MethodHook;
 import sumicya.fcmself.libxposed.XC_MethodReplacement;
 import sumicya.fcmself.libxposed.XposedHelpers;
 import sumicya.fcmself.util.XposedUtils;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * OPPO/OnePlus ColorOS 专用 FCM 修复模块
@@ -16,6 +20,17 @@ import sumicya.fcmself.util.XposedUtils;
  * 3. 禁用 Hans 后台管理系统对 GMS 的限制
  */
 public class OplusProxyFix extends XposedModule {
+
+    /**
+     * 同一目标包的 shouldProxy bypass 日志最小间隔。
+     *
+     * <p>聊天类应用的 FCM 消息非常密集（实测 5 分钟 200+ 条），逐条打日志只会把 logcat 刷满。
+     * 这里按包名节流，并在下一条日志里报告被抑制的条数——命中信息一条不丢，噪音大幅下降。
+     */
+    private static final long BYPASS_LOG_INTERVAL_MS = 60_000L;
+
+    /** 包名 -> {上次打印时刻, 期间被抑制条数} */
+    private static final Map<String, long[]> BYPASS_LOG_STATE = new ConcurrentHashMap<>();
 
     private static Object s_oplusProxyWakeLock = null;
     private static volatile boolean s_useFourParams = false;
@@ -75,9 +90,7 @@ public class OplusProxyFix extends XposedModule {
                 
                 // 示例：caller=com.google.android.gms, action=com.google.android.c2dm.intent.RECEIVE
                 if (isFCMAction(action) && hasTargetPackage(pkgName)) {
-                    printLog("shouldProxy bypass: pkg=" + pkgName + 
-                             ", caller=" + callingPkg + 
-                             ", action=" + action);
+                    logBypassThrottled(pkgName, callingPkg, action);
                     param.setResult(notIncludeValue);
                 }
             }
@@ -126,6 +139,24 @@ public class OplusProxyFix extends XposedModule {
      * 
      * @param target 目标应用包名
      */
+    /** 按包名节流的 bypass 日志（见 {@link #BYPASS_LOG_INTERVAL_MS}）。 */
+    private static void logBypassThrottled(String pkgName, String callingPkg, String action) {
+        long now = SystemClock.elapsedRealtime();
+        long[] state = BYPASS_LOG_STATE.computeIfAbsent(pkgName, k -> new long[2]);
+        synchronized (state) {
+            if (now - state[0] < BYPASS_LOG_INTERVAL_MS) {
+                state[1]++;
+                return;
+            }
+            long suppressed = state[1];
+            state[0] = now;
+            state[1] = 0;
+            printLog("shouldProxy bypass: pkg=" + pkgName + ", caller=" + callingPkg
+                    + ", action=" + action
+                    + (suppressed > 0 ? "（期间另有 " + suppressed + " 条同类日志已抑制）" : ""));
+        }
+    }
+
     public static void unfreeze(String target) {
         if (s_oplusProxyWakeLock == null) {
             return;

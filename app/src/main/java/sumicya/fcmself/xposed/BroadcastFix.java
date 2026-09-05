@@ -1,5 +1,6 @@
 package sumicya.fcmself.xposed;
 
+import android.app.AppOpsManager;
 import android.content.Intent;
 import android.os.Build;
 
@@ -8,6 +9,7 @@ import java.lang.reflect.Parameter;
 
 import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.util.MethodArgs;
 import sumicya.fcmself.libxposed.XposedBridge;
 import sumicya.fcmself.util.XposedUtils;
 
@@ -26,6 +28,16 @@ import sumicya.fcmself.util.XposedUtils;
  * 4. ColorOS：调用 OplusProxyFix.unfreeze 解除 OplusProxy 冻结。
  */
 public class BroadcastFix extends XposedModule {
+
+    /**
+     * AOSP {@code AppOpsManager.OP_POST_NOTIFICATION}（值 11，@hide 常量无法直接引用；
+     * 已对照 AOSP android-9.0.0_r34 与 prebuilts android-29 核实）。
+     *
+     * <p>broadcastIntentLocked 的 appOp 参数为 {@link AppOpsManager#OP_NONE}（-1）时表示
+     * 调用方未指定，此时补成 OP_POST_NOTIFICATION，让这条广播按"投递通知"来对待，
+     * 从而允许送达已停止的应用。
+     */
+    private static final int APP_OP_POST_NOTIFICATION = 11;
 
     public BroadcastFix(ClassLoader classLoader) {
         super(classLoader);
@@ -90,16 +102,16 @@ public class BroadcastFix extends XposedModule {
             appOpIndex = 10;
         } else if (Build.VERSION.SDK_INT == 31 || Build.VERSION.SDK_INT == 32) {
             intentIndex = 3;
-            appOpIndex = findIntParamIndex(parameters, 11, 12);
+            appOpIndex = MethodArgs.firstIntIndex(parameters, 11, 12);
         } else if (Build.VERSION.SDK_INT == 33) {
             intentIndex = 3;
             appOpIndex = 12;
         } else if (Build.VERSION.SDK_INT == 34) {
             intentIndex = 3;
-            appOpIndex = findIntParamIndex(parameters, 12, 13);
+            appOpIndex = MethodArgs.firstIntIndex(parameters, 12, 13);
         } else if (Build.VERSION.SDK_INT >= 35) {
             intentIndex = 3;
-            appOpIndex = findIntParamIndex(parameters, 12, 13);
+            appOpIndex = MethodArgs.firstIntIndex(parameters, 12, 13);
         }
 
         if (intentIndex == 0 || appOpIndex == 0) {
@@ -125,40 +137,19 @@ public class BroadcastFix extends XposedModule {
      * 由调用方打出"hook 位置查找失败"并跳过。
      */
     private static int[] resolveBroadcastArgs(Method targetMethod, int intentIndex, int appOpIndex) {
-        Parameter[] parameters = targetMethod.getParameters();
-        if (intentIndex < parameters.length && appOpIndex < parameters.length
-                && parameters[intentIndex].getType() == Intent.class
-                && parameters[appOpIndex].getType() == int.class) {
+        Class<?>[] paramTypes = targetMethod.getParameterTypes();
+        if (MethodArgs.matches(paramTypes, intentIndex, Intent.class, appOpIndex)) {
             return new int[]{intentIndex, appOpIndex};
         }
-        int byNameIntent = -1;
-        int byNameAppOp = -1;
-        for (int i = 0; i < parameters.length; i++) {
-            if ("intent".equals(parameters[i].getName()) && parameters[i].getType() == Intent.class) {
-                byNameIntent = i;
-            }
-            if ("appOp".equals(parameters[i].getName()) && parameters[i].getType() == int.class) {
-                byNameAppOp = i;
-            }
-        }
-        if (byNameIntent < 0 || byNameAppOp < 0) {
+        int[] byName = MethodArgs.byName(targetMethod.getParameters(), Intent.class);
+        if (byName == null) {
             printLog("broadcastIntentLocked 参数位置无法确定（API " + Build.VERSION.SDK_INT
-                    + "，参数个数 " + parameters.length + "）");
+                    + "，参数个数 " + paramTypes.length + "）");
             return null;
         }
-        printLog("broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@" + byNameIntent
-                + " appOp@" + byNameAppOp);
-        return new int[]{byNameIntent, byNameAppOp};
-    }
-
-    /** 返回 candidates 中第一个 int 类型参数下标，都没有则返回 -1。 */
-    private static int findIntParamIndex(Parameter[] parameters, int... candidates) {
-        for (int i : candidates) {
-            if (i < parameters.length && parameters[i].getType() == int.class) {
-                return i;
-            }
-        }
-        return -1;
+        printLog("broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@" + byName[0]
+                + " appOp@" + byName[1]);
+        return byName;
     }
 
     protected void createBroadcastIntentLockedHooker(int intent_args_index, int appOp_args_index, Method method) {
@@ -184,8 +175,8 @@ public class BroadcastFix extends XposedModule {
                     String target = targetOf(intent);
                     if (hasTargetPackage(target)) {
                         int appOp = (Integer) methodHookParam.args[finalAppOp_args_index];
-                        if (appOp == -1) {
-                            methodHookParam.args[finalAppOp_args_index] = 11;
+                        if (appOp == AppOpsManager.OP_NONE) {
+                            methodHookParam.args[finalAppOp_args_index] = APP_OP_POST_NOTIFICATION;
                         }
                         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                         printLog("Add FLAG_INCLUDE_STOPPED_PACKAGES: " + target, true);

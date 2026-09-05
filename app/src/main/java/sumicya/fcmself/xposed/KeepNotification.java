@@ -10,6 +10,7 @@ import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.libxposed.XC_MethodHook;
 import sumicya.fcmself.libxposed.XposedBridge;
 import sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.util.MethodArgs;
 
 /**
  * 通知保持模块 - 防止系统自动清除 FCM 通知
@@ -99,10 +100,7 @@ public class KeepNotification extends XposedModule {
         // system_server 里抛 ClassCastException，或把无关的通知取消一并拦下，因此先按真实
         // 签名校验；不符就放弃这个 Hook（其它模块不受影响），并打出可供排查的签名信息。
         Class<?>[] paramTypes = targetMethod.getParameterTypes();
-        int maxArgsIndex = Math.max(pkgArgsIndex, reasonArgsIndex);
-        if (paramTypes.length <= maxArgsIndex
-                || paramTypes[pkgArgsIndex] != String.class
-                || paramTypes[reasonArgsIndex] != int.class) {
+        if (!MethodArgs.matches(paramTypes, pkgArgsIndex, reasonArgsIndex)) {
             printLog("cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦截通知："
                     + "API " + Build.VERSION.SDK_INT + "，参数=" + Arrays.toString(paramTypes)
                     + "，预期 pkg@" + pkgArgsIndex + "(String) reason@" + reasonArgsIndex + "(int)");
