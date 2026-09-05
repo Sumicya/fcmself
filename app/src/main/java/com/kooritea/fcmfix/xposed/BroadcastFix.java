@@ -21,11 +21,27 @@ import com.kooritea.fcmfix.libxposed.XposedHelpers;
 import com.kooritea.fcmfix.util.IceboxUtils;
 import com.kooritea.fcmfix.util.XposedUtils;
 
+/**
+ * BroadcastFix - 广播修复模块
+ * 
+ * 功能说明：
+ * Hook 系统广播发送流程，确保 FCM/GCM 消息能够正确送达目标应用。
+ * 主要解决系统阻止后台应用接收广播的问题。
+ * 
+ * 工作原理：
+ * 1. Hook broadcastIntentLocked 方法（Android 系统广播核心入口）
+ * 2. 检测 FCM 相关 Intent，强制添加 FLAG_INCLUDE_STOPPED_PACKAGES 标志
+ * 3. 修改 appOp 参数，绕过权限检查
+ * 4. 支持 IceBox 冻结应用的自动激活
+ * 
+ * 配合 fcmfix 可实现无代理直接接收 FCM 消息的核心组件
+ */
 public class BroadcastFix extends XposedModule {
 
     public BroadcastFix(ClassLoader classLoader) {
         super(classLoader);
         try{
+            // Hook 广播发送锁定方法
             this.startHookBroadcastIntentLocked();
         }catch (Throwable e) {
             printLog("hook error broadcastIntentLocked:" + e.getMessage());
@@ -37,6 +53,10 @@ public class BroadcastFix extends XposedModule {
 //        }
     }
 
+    /**
+     * Hook broadcastIntentLocked 方法
+     * 该方法是 Android 系统发送广播的核心入口点
+     */
     protected void startHookBroadcastIntentLocked(){
         Method targetMethod = null;
         int intent_args_index = 0;
