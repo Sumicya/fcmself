@@ -37,7 +37,7 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 ## 系统要求
 
 - Android 10+ (API 29+)，Android 10-15 测试
-- Root 权限 + LSPosed 框架
+- Root 权限 + LSPosed 框架（Modern Xposed API 100+，target 102）
 - Google Play 服务 (GMS) 已安装
 
 ## 安装说明

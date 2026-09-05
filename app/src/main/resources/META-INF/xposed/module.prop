@@ -1,4 +1,5 @@
 minApiVersion=100
-targetApiVersion=101
+# target 102：兼容 LSPosed API 102（纯增量，不改变 101 上的行为）
+targetApiVersion=102
 staticScope=false
 exceptionMode=protective
