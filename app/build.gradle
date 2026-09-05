@@ -14,7 +14,10 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            // R8 只作用于 release；CI 产出的 debug APK 不混淆。
+            // 入口类由 proguard-rules.pro 保留（LSPosed 按类名字符串加载）。
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {
