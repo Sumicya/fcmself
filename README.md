@@ -21,11 +21,6 @@
 - 阻止 OplusProxyBroadcast 拦截 FCM 广播
 - 禁用 Hans 后台管理系统对 GMS 的限制
 
-#### MIUI/HyperOS
-- 修复 PowerKeeper 对 GMS 的限制
-- 解除本地通知自动清除
-- 绕过 BroadcastQueue/SmartPower 的自启动拦截
-
 ## 关于 FCM
 
 FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应用之间用于推送通知的长链接。
@@ -37,8 +32,9 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 - Android 10+（API 29+）。Android 10-15 有过测试记录；**Android 16（API 36）已于 2026-09-05
   在 ColorOS + LSPosed 2.2.0 上真机验证通过**
 - Root 权限 + LSPosed 框架，需支持 libxposed API 101+（LSPosed 2.1.0 / 2.2.0，本模块 target API 102）
-- 厂商定制路径只覆盖小米（MIUI/HyperOS 的 `com.miui.*`）与 OPPO（ColorOS/OxygenOS 的 `Oplus*`），
-  其它 ROM 只有通用修复（唤醒停止的应用、阻止通知被自动清理、GMS 重连修复）
+- 厂商定制路径只覆盖 OPPO（ColorOS / OxygenOS 的 `Oplus*`）。MIUI/HyperOS 支持已按需移除
+  （需要时可从 git 历史恢复），其它 ROM 只有通用修复（唤醒停止的应用、阻止通知被自动清理、
+  GMS 重连修复）
 - Google Play 服务 (GMS) 已安装（重连修复需要）
 
 两处按版本硬编码的参数下标在挂 Hook 前会按真实签名自校验，不符就打日志并跳过该 Hook
@@ -49,7 +45,6 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 Android 16 + ColorOS + LSPosed 2.2.0 的实测结果：核心唤醒、ColorOS 代理绕过与解冻
 （`unfreezeIfNeed` 4 参数签名）、GMS 重连修复的 hook 点自动发现（定位到混淆后的
 `timer_class` / `timer_settimeout_method` / `timer_alarm_type_property`）均生效；
-MIUI/HyperOS 专有的 Hook 点会打印 `No Such Method/Class`，在非小米设备上属正常。
 
 ## 安装说明
 
@@ -65,10 +60,6 @@ MIUI/HyperOS 专有的 Hook 点会打印 `No Such Method/Class`，在非小米�
 
 - `system`：系统服务，核心 Hook 所在，**必须**
 - `com.google.android.gms`：重连修复与 FCM Diagnostics 注入
-- `com.miui.powerkeeper`：MIUI/HyperOS 电量管家限制解除
-
-非 MIUI 设备可以取消勾选 `com.miui.powerkeeper`；在 MIUI/HyperOS 上如果推送本来就没问题，
-也不需要额外勾选电量和性能相关作用域。
 
 ## 行为说明（无配置项）
 
@@ -84,9 +75,6 @@ MIUI/HyperOS 专有的 Hook 点会打印 `No Such Method/Class`，在非小米�
 
 #### 系统服务 (`system`)
 - `ActivityManagerService.broadcastIntentLocked` / `BroadcastController.broadcastIntentLocked` (API 29-35)
-- `BroadcastQueueInjector/BroadcastQueueImpl/BroadcastQueueModernStubImpl.checkApplicationAutoStart` (MIUI 12/13/HyperOS)
-- `AutoStartManagerServiceStubImpl.isAllowStartService`
-- `SmartPowerService.shouldInterceptBroadcast`
 - `OplusAppStartupManager.shouldPreventSendReceiverReal` (OOS/ColorOS 15)
 - `NotificationManagerService.cancelAllNotificationsInt`
 - `OplusProxyWakeLock` / `OplusProxyBroadcast` (ColorOS)
@@ -95,11 +83,6 @@ MIUI/HyperOS 专有的 Hook 点会打印 `No Such Method/Class`，在非小米�
 #### GMS (`com.google.android.gms`)
 - `GcmChimeraService` 生命周期 + 内部 Timer 重连管理（hook 点自动发现并持久化）
 - `GcmChimeraDiagnostics` 注入操作按钮
-
-#### 厂商服务 (`com.miui.powerkeeper` 等)
-- `MilletConfig.isGlobal` / `SimpleSettings.Misc.getBoolean`
-- `MilletPolicy` 构造时的黑/白名单修改
-- `SmartPowerPolicyManager.shouldInterceptService` (MIUI 13)
 
 ### 架构说明
 
@@ -123,8 +106,6 @@ app/
 │       ├── AutoStartFix.java        # 自启动修复
 │       ├── KeepNotification.java    # 通知保持
 │       ├── OplusProxyFix.java       # ColorOS 专用
-│       ├── PowerkeeperFix.java      # MIUI 电量管家
-│       ├── MiuiLocalNotificationFix.java
 │       └── ReconnectManagerFix.java # GMS 重连修复
 └── build.gradle
 ```
@@ -172,7 +153,7 @@ pkg install -y openjdk-21 apksigner
 
 ## 已知问题
 
-- 非 MIUI/HyperOS/OxygenOS15/ColorOS15 系统可能需要给予目标应用类似"允许自启动"的权限，以及电池选项设置为"不优化"
+- 非 OxygenOS15/ColorOS15 系统可能需要给予目标应用类似"允许自启动"的权限，以及电池选项设置为"不优化"
 - 各 ROM 的 Hook 点随版本变化，部分机型可能需要自行验证
 - GMS 更新后重连修复的 hook 点会自动重新发现；发现失败时会发送通知并禁用该功能（其它功能不受影响）
 

@@ -11,9 +11,7 @@ import sumicya.fcmself.util.FcmselfLog;
 import sumicya.fcmself.xposed.AutoStartFix;
 import sumicya.fcmself.xposed.BroadcastFix;
 import sumicya.fcmself.xposed.KeepNotification;
-import sumicya.fcmself.xposed.MiuiLocalNotificationFix;
 import sumicya.fcmself.xposed.OplusProxyFix;
-import sumicya.fcmself.xposed.PowerkeeperFix;
 import sumicya.fcmself.xposed.ReconnectManagerFix;
 import sumicya.fcmself.xposed.XposedModule;
 
@@ -34,7 +32,6 @@ import io.github.libxposed.api.XposedModuleInterface;
 public class XposedMain extends io.github.libxposed.api.XposedModule {
 
     private static final String PKG_GMS = "com.google.android.gms";
-    private static final String PKG_POWERKEEPER = "com.miui.powerkeeper";
 
     /** 单个 Hook 模块的构造方式。 */
     private interface ModuleFactory {
@@ -55,7 +52,6 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
     /** system_server 内安装的模块，顺序即安装顺序。 */
     private static final List<ModuleEntry> SYSTEM_SERVER_MODULES = Arrays.asList(
             new ModuleEntry("BroadcastFix", BroadcastFix::new),
-            new ModuleEntry("MiuiLocalNotificationFix", MiuiLocalNotificationFix::new),
             new ModuleEntry("AutoStartFix", AutoStartFix::new),
             new ModuleEntry("KeepNotification", KeepNotification::new),
             new ModuleEntry("OplusProxyFix", OplusProxyFix::new));
@@ -66,8 +62,6 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
     static {
         PACKAGE_MODULES.put(PKG_GMS, Collections.singletonList(
                 new ModuleEntry("ReconnectManagerFix", ReconnectManagerFix::new)));
-        PACKAGE_MODULES.put(PKG_POWERKEEPER, Collections.singletonList(
-                new ModuleEntry("PowerkeeperFix", PowerkeeperFix::new)));
     }
 
     @Override

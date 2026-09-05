@@ -3,12 +3,12 @@ package sumicya.fcmself.config;
 import sumicya.fcmself.util.FcmselfLog;
 
 /**
- * fcmself 运行期状态（每个进程一份，system_server / GMS / PowerKeeper 各自独立）。
+ * fcmself 运行期状态（每个进程一份，system_server 与 GMS 各自独立）。
  *
  * <p>本模块是纯 Hook 模块：没有设置界面，也没有白名单/开关配置——所有修复对所有
  * FCM 目标应用生效。唯一的运行期状态是"系统是否启动完成"：system_server 进程在
  * 用户解锁后延迟 {@link #BOOT_COMPLETE_DELAY_MS} 才置位，避免在系统启动早期介入
- * 广播/通知类 Hook；其它进程（GMS、PowerKeeper）配置即就绪。
+ * 广播/通知类 Hook；其它进程（GMS）配置即就绪。
  */
 public final class FcmselfConfig {
 

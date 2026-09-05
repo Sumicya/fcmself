@@ -7,13 +7,12 @@
 [fcmself] [<进程身份>]<内容>
 ```
 
-进程身份：system_server 是 `android`，GMS 是 `com.google.android.gms`，电量管家是 `com.miui.powerkeeper`。
+进程身份：system_server 是 `android`，GMS 是 `com.google.android.gms`。
 
 ## 0. 准备
 
 1. 安装 CI 产物里的 `fcmself-<版本>-debug-signed.apk`（或本地用 `scripts/sign-apk.sh` 签一个）
-2. LSPosed 启用模块，确认作用域已勾选（默认预选）：`system`、`com.google.android.gms`、
-   非 MIUI 设备可不勾 `com.miui.powerkeeper`
+2. LSPosed 启用模块，确认作用域已勾选（默认预选）：`system`、`com.google.android.gms`
 3. 重启设备
 4. 开始抓日志（重启后立刻开始，别错过启动日志）：
 
@@ -64,7 +63,6 @@ broadcastIntentLocked hook 位置查找失败，fcmself将不会工作。
 ```
 Allow Auto Start: <包名>
 [<action>]checkApplicationAutoStart package_name: <包名>
-Disable MIUI Intercept: <包名>
 SmartPowerService.shouldInterceptBroadcast package_name: <包名>
 ```
 
@@ -83,20 +81,7 @@ Hook 的是 `NotificationManagerService.cancelAllNotificationsInt`，只拦截
 No Such Method com.android.server.notification.NotificationManagerService.cancelAllNotificationsInt
 ```
 
-## 5. MIUI / HyperOS 电量管家（需勾选 `com.miui.powerkeeper`）
-
-```
-Set com.miui.powerkeeper.millet.MilletConfig.isGlobal to true
-Success: PowerKeeper GMS Limitation.
-Success: MilletPolicy mSystemBlackList.
-Success: MilletPolicy whiteApps.
-Success: MilletPolicy mDataWhiteList.
-```
-
-`Error: MilletPolicy. Field not found: ...` = 这台设备的 PowerKeeper 改了字段名，请连同
-日志和 PowerKeeper 版本一起反馈。
-
-## 6. OPPO / OnePlus（ColorOS / OxygenOS）
+## 5. OPPO / OnePlus（ColorOS / OxygenOS）
 
 ```
 OplusProxyWakeLock instance captured
@@ -107,7 +92,7 @@ unfreeze: <包名>, uid=...
 `hook error OplusProxy: ...` / `hook error registerGmsRestrictObserver: ...` 表示该 ColorOS
 版本没有对应方法，其它 Hook 不受影响。
 
-## 7. GMS 重连修复（需勾选 `com.google.android.gms`）
+## 6. GMS 重连修复（需勾选 `com.google.android.gms`）
 
 打开 FCM Diagnostics 页面（模块会往里注入 `RECONNECT` 按钮）：
 
@@ -139,7 +124,7 @@ fcmself_config init
 页面里还能看到以 `[fcmself] [com.google.android.gms]` 开头的行，那是本模块转发到 GMS 日志的
 诊断信息。
 
-## 7.1 不重启也能验证的部分
+## 6.1 不重启也能验证的部分
 
 模块在**进程启动时**注入。因此只有 `system` 作用域（system_server）必须重启设备，
 其余作用域只要把对应进程杀掉重启即可生效：
@@ -147,15 +132,12 @@ fcmself_config init
 ```bash
 # GMS 重连修复（ReconnectManagerFix）
 adb shell su -c "am force-stop com.google.android.gms"
-
-# MIUI 电量管家（PowerkeeperFix）
-adb shell su -c "am force-stop com.miui.powerkeeper"
 ```
 
-进程重启后按第 5、7 节看日志。**注意**：核心的"唤醒未启动应用"跑在 system_server 里，
+进程重启后按第 5、6 节看日志。**注意**：核心的"唤醒未启动应用"跑在 system_server 里，
 不重启无法验证；第 2、3、4 节必须等设备重启后再看。
 
-## 7.2 Android 16（API 36）需要额外确认的两行
+## 6.2 Android 16（API 36）需要额外确认的两行
 
 代码按 Android 15 的签名假设硬编码了参数下标，挂 Hook 前会自校验。日志里应该看到：
 
@@ -175,13 +157,13 @@ cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦
 broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@N appOp@N   ← 兜底成功，功能仍可用
 ```
 
-## 8. 出问题时怎么排除
+## 7. 出问题时怎么排除
 
 1. LSPosed 里停用模块 → 重启 → 现象还在 = 与本模块无关（ROM 或 GMS 本身）
 2. 卸载模块后，模块会发一条 `Fcmself已卸载，重启后停止生效。` 通知，重启后彻底停用
 3. 需要回滚代码时，本分支每个 commit 都是独立可回退的（`git log --oneline`）
 
-## 9. 反馈问题时请附上
+## 8. 反馈问题时请附上
 
 - 从重启开始的完整 `FcmSelf` 日志
 - ROM 名称与版本、GMS 版本号、LSPosed 版本、Android 版本
