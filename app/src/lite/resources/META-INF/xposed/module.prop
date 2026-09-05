@@ -1,6 +1,0 @@
-minApiVersion=100
-# target 102：兼容 LSPosed API 102（纯增量，不改变 101 上的行为）
-targetApiVersion=102
-# lite 变体：固定作用域（无 UI 可选），见 scope.list
-staticScope=true
-exceptionMode=protective

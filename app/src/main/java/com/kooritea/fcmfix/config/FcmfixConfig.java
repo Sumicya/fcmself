@@ -2,14 +2,8 @@ package com.kooritea.fcmfix.config;
 
 import android.content.SharedPreferences;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -19,12 +13,7 @@ import com.kooritea.fcmfix.util.FcmfixLog;
 /**
  * fcmfix 运行期配置中心（每个进程一份，system_server / GMS / PowerKeeper 各自独立）。
  *
- * <p>配置来源（按优先级）：
- * <ol>
- *   <li>LSPosed 远程配置（模块 UI 写入的 SharedPreferences "config" 组）；</li>
- *   <li>lite 变体额外支持：模块共享数据目录下的 {@value #REMOTE_FILE_ALLOWLIST}
- *       （每行一个包名），用于无 UI 环境下的白名单配置。</li>
- * </ol>
+ * <p>配置来源：LSPosed 远程配置（模块 UI 写入的 SharedPreferences "config" 组）。
  *
  * <p>生命周期：
  * <ul>
@@ -52,9 +41,6 @@ public final class FcmfixConfig {
 
     /** 远程配置组名 */
     public static final String REMOTE_PREFS_GROUP = "config";
-    /** lite 变体白名单文件（模块共享数据目录） */
-    public static final String REMOTE_FILE_ALLOWLIST = "allowlist.txt";
-
     /** system_server 启动后延迟介入的时间 */
     private static final long BOOT_COMPLETE_DELAY_MS = 60000L;
 
@@ -63,14 +49,8 @@ public final class FcmfixConfig {
     private static volatile Set<String> allowList = null;
     private static volatile boolean isBootComplete = false;
     private static Thread loadConfigThread = null;
-    /** 是否为 lite 变体（无 UI，启用远程文件白名单） */
-    private static boolean liteBuild = false;
 
     private FcmfixConfig() {
-    }
-
-    public static void setLiteBuild(boolean lite) {
-        liteBuild = lite;
     }
 
     /**
@@ -151,10 +131,6 @@ public final class FcmfixConfig {
                     if (list == null) {
                         list = new HashSet<>();
                     }
-                    if (liteBuild && list.isEmpty()) {
-                        // lite 变体无 UI，白名单来自共享数据目录下的 allowlist.txt
-                        list = readAllowListFile();
-                    }
                     allowList = list;
                     if ("android".equals(FcmfixLog.getSelfPackageName())) {
                         FcmfixLog.log("[Modern Xposed API]onUpdateConfig allowList size: " + list.size());
@@ -173,43 +149,5 @@ public final class FcmfixConfig {
             }
         };
         loadConfigThread.start();
-    }
-
-    /** 读取共享数据目录中的白名单文件（每行一个包名，# 开头为注释）。 */
-    private static Set<String> readAllowListFile() {
-        Set<String> result = new HashSet<>();
-        try {
-            String[] files = XposedBridge.listRemoteFiles();
-            if (files == null || !filesToStringList(files).contains(REMOTE_FILE_ALLOWLIST)) {
-                return result;
-            }
-            InputStream in;
-            try {
-                in = XposedBridge.openRemoteFile(REMOTE_FILE_ALLOWLIST);
-            } catch (Throwable e) {
-                FcmfixLog.log("读取 " + REMOTE_FILE_ALLOWLIST + " 失败: " + e.getMessage());
-                return result;
-            }
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(in, Charset.forName("UTF-8")));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                line = line.trim();
-                if (!line.isEmpty() && !line.startsWith("#")) {
-                    result.add(line);
-                }
-            }
-        } catch (Throwable e) {
-            FcmfixLog.log("读取 " + REMOTE_FILE_ALLOWLIST + " 失败: " + e.getMessage());
-        }
-        return result;
-    }
-
-    private static List<String> filesToStringList(String[] files) {
-        List<String> list = new ArrayList<>();
-        for (String f : files) {
-            list.add(f);
-        }
-        return list;
     }
 }

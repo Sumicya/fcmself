@@ -33,7 +33,6 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
     public void onSystemServerStarting(io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam param) {
         XposedBridge.init(this);
         FcmfixLog.setSelfPackageName("android");
-        FcmfixConfig.setLiteBuild(BuildConfig.LITE);
 
         ClassLoader classLoader = param.getClassLoader();
 
@@ -56,7 +55,6 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
     @Override
     public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
         XposedBridge.init(this);
-        FcmfixConfig.setLiteBuild(BuildConfig.LITE);
 
         if ("com.google.android.gms".equals(param.getPackageName()) && param.isFirstPackage()) {
             FcmfixLog.setSelfPackageName("com.google.android.gms");
