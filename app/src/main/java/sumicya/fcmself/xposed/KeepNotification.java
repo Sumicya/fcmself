@@ -7,10 +7,9 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 
 import sumicya.fcmself.config.FcmselfConfig;
-import sumicya.fcmself.libxposed.XC_MethodHook;
-import sumicya.fcmself.libxposed.XposedBridge;
-import sumicya.fcmself.libxposed.XposedHelpers;
+import sumicya.fcmself.util.Hooks;
 import sumicya.fcmself.util.MethodArgs;
+import sumicya.fcmself.util.Reflect;
 
 import io.github.libxposed.api.XposedInterface;
 
@@ -53,26 +52,17 @@ public class KeepNotification extends XposedModule {
     /**
      * 开始 Hook 操作：Hook 通知取消方法，防止系统自动清除目标应用的通知
      *
-     * @throws NoSuchMethodError                        当找不到目标方法时抛出
-     * @throws XposedHelpers.ClassNotFoundError         当找不到目标类时抛出
+     * @throws NoSuchMethodError      当找不到目标方法时抛出
+     * @throws Reflect.ClassNotFound  当找不到目标类时抛出
      */
-    protected void startHook() throws NoSuchMethodError, XposedHelpers.ClassNotFoundError {
+    protected void startHook() throws NoSuchMethodError, Reflect.ClassNotFound {
         // 查找通知管理服务类
-        Class<?> clazz = XposedHelpers.findClass("com.android.server.notification.NotificationManagerService", classLoader);
-        final Method[] declareMethods = clazz.getDeclaredMethods();
-        Method targetMethod = null;
+        Class<?> clazz = Reflect.findClass("com.android.server.notification.NotificationManagerService", classLoader);
 
         // 查找 cancelAllNotificationsInt 方法，选择参数最多的版本（通常是最新的）
-        for (Method method : declareMethods) {
-            if ("cancelAllNotificationsInt".equals(method.getName())) {
-                if (targetMethod == null || targetMethod.getParameterTypes().length < method.getParameterTypes().length) {
-                    targetMethod = method;
-                }
-            }
-        }
-
+        Method targetMethod = Reflect.findMethodMostParams(clazz, "cancelAllNotificationsInt");
         if (targetMethod == null) {
-            throw new NoSuchMethodError();
+            throw new NoSuchMethodError(clazz.getName() + "#cancelAllNotificationsInt");
         }
 
         int pkgArgsIndex;
@@ -111,30 +101,31 @@ public class KeepNotification extends XposedModule {
         printLog("cancelAllNotificationsInt hook 参数：pkg@" + pkgArgsIndex
                 + " reason@" + reasonArgsIndex + "（API " + Build.VERSION.SDK_INT + "）");
 
-        final int finalPkgArgsIndex = pkgArgsIndex;
-        final int finalReasonArgsIndex = reasonArgsIndex;
+        // lambda 里只能引用 effectively final 的局部变量，两个下标在上面的分支里赋值过，
+        // 这里复制成 final 再捕获
+        final int pkgIndex = pkgArgsIndex;
+        final int reasonIndex = reasonArgsIndex;
 
         // Hook 目标方法
-        XposedBridge.hookMethod(targetMethod, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
-                // 系统启动完成前不介入
-                if (!FcmselfConfig.isBootComplete()) {
-                    return;
-                }
-                // 目标包名可解析即介入：阻止系统因应用包变化自动清理其通知
-                if (hasTargetPackage((String) param.args[finalPkgArgsIndex])) {
-                    int reason = (int) param.args[finalReasonArgsIndex];
+        Hooks.hook(api, targetMethod, chain -> {
+            // 系统启动完成前不介入
+            if (!FcmselfConfig.isBootComplete()) {
+                return chain.proceed();
+            }
+            // 目标包名可解析即介入：阻止系统因应用包变化自动清理其通知
+            if (hasTargetPackage((String) chain.getArg(pkgIndex))) {
+                int reason = (int) chain.getArg(reasonIndex);
 
-                    // 原因是应用包变化（如更新/卸载）：阻止取消通知
-                    if (reason == NotificationListenerService.REASON_PACKAGE_CHANGED
-                            // ColorOS 15 / OxygenOS 15 的特定原因代码
-                            || reason == REASON_COS_OOS_1
-                            || reason == REASON_COS_OOS_2) {
-                        param.setResult(null);
-                    }
+                // 原因是应用包变化（如更新/卸载）：阻止取消通知
+                if (reason == NotificationListenerService.REASON_PACKAGE_CHANGED
+                        // ColorOS 15 / OxygenOS 15 的特定原因代码
+                        || reason == REASON_COS_OOS_1
+                        || reason == REASON_COS_OOS_2) {
+                    // 不调用 chain.proceed()：直接返回，等于这次取消请求被忽略
+                    return null;
                 }
             }
+            return chain.proceed();
         });
     }
 }

@@ -4,10 +4,8 @@ import android.content.Intent;
 
 import java.lang.reflect.Method;
 
-import sumicya.fcmself.libxposed.XC_MethodHook;
-import sumicya.fcmself.libxposed.XposedBridge;
-import sumicya.fcmself.libxposed.XposedHelpers;
-import sumicya.fcmself.util.XposedUtils;
+import sumicya.fcmself.util.Hooks;
+import sumicya.fcmself.util.Reflect;
 
 import io.github.libxposed.api.XposedInterface;
 
@@ -37,21 +35,23 @@ public class AutoStartFix extends XposedModule {
     /** OOS 15 / ColorOS 15: OplusAppStartupManager.shouldPreventSendReceiverReal */
     protected void startHook() {
         try {
-            Method method = XposedUtils.findMethod(
-                    XposedHelpers.findClass("com.android.server.am.OplusAppStartupManager", classLoader),
-                    "shouldPreventSendReceiverReal", 4);
-            XposedBridge.hookMethod(method, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam methodHookParam) {
-                    if (methodHookParam.args[0] != null) {
-                        Intent intent = intentOfField(methodHookParam.args[0]);
-                        if (isFCMIntent(intent) && hasTargetPackage(intent.getPackage())) {
-                            methodHookParam.setResult(false);
-                        }
+            Class<?> clazz = Reflect.findClass("com.android.server.am.OplusAppStartupManager", classLoader);
+            Method method = Reflect.findMethodByParamCount(clazz, "shouldPreventSendReceiverReal", 4);
+            if (method == null) {
+                throw new NoSuchMethodError(clazz.getName() + "#shouldPreventSendReceiverReal");
+            }
+            Hooks.hook(api, method, chain -> {
+                Object holder = chain.getArg(0);
+                if (holder != null) {
+                    Intent intent = intentOfField(holder);
+                    if (isFCMIntent(intent) && hasTargetPackage(intent.getPackage())) {
+                        // 不调用 chain.proceed()，直接返回 false = 放行这条广播
+                        return false;
                     }
                 }
+                return chain.proceed();
             });
-        } catch (XposedHelpers.ClassNotFoundError | NoSuchMethodError e) {
+        } catch (Reflect.ClassNotFound | NoSuchMethodError e) {
             printLog("No Such Method com.android.server.am.OplusAppStartupManager.shouldPreventSendReceiverReal");
         }
     }

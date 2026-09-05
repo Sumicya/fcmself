@@ -7,10 +7,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 
 import sumicya.fcmself.config.FcmselfConfig;
-import sumicya.fcmself.libxposed.XC_MethodHook;
+import sumicya.fcmself.util.Hooks;
 import sumicya.fcmself.util.MethodArgs;
-import sumicya.fcmself.libxposed.XposedBridge;
-import sumicya.fcmself.util.XposedUtils;
+import sumicya.fcmself.util.Reflect;
 
 import io.github.libxposed.api.XposedInterface;
 
@@ -64,7 +63,7 @@ public class BroadcastFix extends XposedModule {
 
         // Android 15+：广播逻辑移到 BroadcastController
         if (Build.VERSION.SDK_INT >= 35) {
-            Method m = XposedUtils.tryFindMethodMostParam(classLoader, "com.android.server.am.BroadcastController", "broadcastIntentLocked");
+            Method m = Reflect.findMethodMostParams(classLoader, "com.android.server.am.BroadcastController", "broadcastIntentLocked");
             if (m != null) {
                 targetMethod = m;
                 argsIndex = resolveBroadcastArgs(m, 3, 13);
@@ -72,7 +71,7 @@ public class BroadcastFix extends XposedModule {
         }
         // Android 10-14：仍在 ActivityManagerService
         if (targetMethod == null) {
-            targetMethod = XposedUtils.tryFindMethodMostParam(classLoader, "com.android.server.am.ActivityManagerService", "broadcastIntentLocked");
+            targetMethod = Reflect.findMethodMostParams(classLoader, "com.android.server.am.ActivityManagerService", "broadcastIntentLocked");
             if (targetMethod != null) {
                 argsIndex = resolveAmsBroadcastArgs(targetMethod);
             }
@@ -163,34 +162,32 @@ public class BroadcastFix extends XposedModule {
         printLog("appOp_args_index: " + appOp_args_index);
         printLog("intent_args_index: " + intent_args_index);
         printLog("hook target: " + method.getDeclaringClass().getName());
-        final int finalIntent_args_index = intent_args_index;
-        final int finalAppOp_args_index = appOp_args_index;
 
-        XposedBridge.hookMethod(method, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam methodHookParam) {
-                if (!FcmselfConfig.isBootComplete()) {
-                    return;
-                }
-                if (methodHookParam.args[finalIntent_args_index] == null) {
-                    return;
-                }
-                Intent intent = (Intent) methodHookParam.args[finalIntent_args_index];
-                // 介入条件：Intent未包含唤醒停止的pkg 且 Intent是FCM
-                if ((intent.getFlags() & Intent.FLAG_INCLUDE_STOPPED_PACKAGES) == 0 && isFCMIntent(intent)) {
-                    String target = targetOf(intent);
-                    if (hasTargetPackage(target)) {
-                        int appOp = (Integer) methodHookParam.args[finalAppOp_args_index];
-                        if (appOp == APP_OP_NONE) {
-                            methodHookParam.args[finalAppOp_args_index] = APP_OP_POST_NOTIFICATION;
-                        }
-                        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-                        printLog("Add FLAG_INCLUDE_STOPPED_PACKAGES: " + target, true);
-                        // cos15 解冻 OplusProxy
-                        OplusProxyFix.unfreeze(target);
+        Hooks.hook(api, method, chain -> {
+            if (!FcmselfConfig.isBootComplete()) {
+                return chain.proceed();
+            }
+            // Chain.getArgs() 返回的是不可变列表，要改参数必须整份传回 proceed(args)
+            Object[] args = chain.getArgs().toArray();
+            if (args[intent_args_index] == null) {
+                return chain.proceed();
+            }
+            Intent intent = (Intent) args[intent_args_index];
+            // 介入条件：Intent未包含唤醒停止的pkg 且 Intent是FCM
+            if ((intent.getFlags() & Intent.FLAG_INCLUDE_STOPPED_PACKAGES) == 0 && isFCMIntent(intent)) {
+                String target = targetOf(intent);
+                if (hasTargetPackage(target)) {
+                    int appOp = (Integer) args[appOp_args_index];
+                    if (appOp == APP_OP_NONE) {
+                        args[appOp_args_index] = APP_OP_POST_NOTIFICATION;
                     }
+                    intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+                    printLog("Add FLAG_INCLUDE_STOPPED_PACKAGES: " + target, true);
+                    // cos15 解冻 OplusProxy
+                    OplusProxyFix.unfreeze(target);
                 }
             }
+            return chain.proceed(args);
         });
     }
 
