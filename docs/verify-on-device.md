@@ -1,7 +1,15 @@
 # 真机验证清单
 
 模块没有界面，行为全部体现在日志里。所有日志的 tag 固定为 `FcmSelf`（见 `FcmselfLog.TAG`），
-每条日志同时写入 `Log.d` 和 LSPosed 日志（`FcmselfLog` 直接调 `XposedInterface.log`），行格式为：
+每条都会写进 logcat；**此外**按类型分流到第二个地方：
+
+| 日志类型 | 除 logcat 外还写到哪里 |
+| --- | --- |
+| 普通日志（`printLog(text)`） | LSPosed 框架日志（`FcmselfLog` 直接调 `XposedInterface.log`） |
+| 诊断日志（`printLog(text, true)`） | 广播转发到 GMS 日志，在 FCM Diagnostics 页面里看 |
+
+所以 **`Add FLAG_INCLUDE_STOPPED_PACKAGES`、`timer_class`、`Send broadcast GCM_RECONNECT`
+这类诊断日志在 LSPosed 日志里找不到**，只能用 logcat 或 FCM Diagnostics。框架日志的行格式：
 
 ```
 [fcmself] [<进程身份>]<内容>
@@ -9,10 +17,14 @@
 
 进程身份：system_server 是 `android`，GMS 是 `com.google.android.gms`。
 
-> **本次构建（`35c8495` 起）重写了 hook 安装层**：libxposed 兼容层
-> （`XposedBridge`/`XposedHelpers`/`XC_MethodHook`）已删除，所有 Hook 直接调用
-> libxposed API。功能逻辑没变，但每个 Hook 点的安装代码都动过，
-> 第 1–6 节建议整体重跑一遍。
+启动那几行会被开机日志挤出 logcat 环形缓冲区，只能从框架日志文件里找：
+
+```bash
+su -c "grep -h fcmself /data/adb/lspd/log/*.log | tail -80"
+```
+
+Android 自带的是 toybox grep，**不支持 `\|` 这种 GNU 交替写法**（会一条都匹配不到）；
+要多关键字请用 `-E`，例如 `grep -hE 'Boot Complete|instance captured'`。
 
 ## 0. 准备
 
@@ -179,3 +191,22 @@ broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@N a
 - 从重启开始的完整 `FcmSelf` 日志
 - ROM 名称与版本、GMS 版本号、LSPosed 版本、Android 版本
 - 目标应用包名，以及"杀掉应用 → 推送"的复现步骤
+
+## 9. 当前验证状态
+
+环境：`versionName=20260905_20aa4fd`（libxposed 兼容层已删除的版本）、ColorOS /
+Android 16（API 36）、LSPosed 2.2.0，验证时间 2026-09-06。
+
+| 项目 | 状态 | 依据 |
+| --- | --- | --- |
+| 模块加载 + 广播下标定位 | 已验证 | `Android API: 36`、`hook target: com.android.server.am.BroadcastController`、`intent_args_index: 3`、`appOp_args_index: 13` |
+| 通知保持 Hook 安装 | 已验证 | `cancelAllNotificationsInt hook 参数：pkg@2 reason@7（API 36）` |
+| ColorOS 代理绕过与解冻 | 已验证 | `shouldProxy bypass`、`unfreezeIfNeed using 4 params: uid=10323` |
+| Hans 三个"整方法替换" | 已验证 | `registerGmsRestrictObserver hooked` / `updateGmsRestrict hooked` / `isGoogleRestricInfoOn hooked` |
+| 端到端投递（核心功能） | 已验证 | 应用划掉后台后仍收到群消息，同时有 `Add FLAG_INCLUDE_STOPPED_PACKAGES: <包名>` |
+| 60 秒日志节流 | 已验证 | `（期间另有 N 条同类日志已抑制）` |
+| 多应用生效（无白名单） | 已验证 | 同一份日志里 `fork.risin42.nagramx` 与 `com.roblox.client` 都被处理 |
+| `KeepNotification` 的实际拦截效果 | **未验证** | 拦下取消请求时不打日志，无法直接观测 |
+| `AutoStartFix` 的实际放行效果 | **未验证** | 成功时不打日志，只能由"没有 `No Such Method ...OplusAppStartupManager` 这行"推断 Hook 已装上 |
+| `ReconnectManagerFix` 的负倒计时重连 | **未验证** | 只确认 Hook 已装上（`timer_class` 等三行）。想验：FCM Diagnostics 里点 `RECONNECT`，期望 `Send broadcast GCM_RECONNECT` |
+| release（R8）产物 | **未验证** | 真机一直装的是 debug-signed；release 只过了 CI 的入口类检查 |
