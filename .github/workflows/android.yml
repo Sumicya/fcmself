@@ -7,22 +7,22 @@
 # 用法：
 #   cp docs/android.yml.suggested .github/workflows/android.yml
 #
+# 这一版是「零 secrets」配置：仓库不需要配置任何签名密钥/发布 token。
+# CI 只做两件事——编译，以及上传两个产物：
+#   - fcmself-<版本>-debug-signed.apk ：debug 签名，可直接安装测试
+#   - fcmself-<版本>-unsigned.apk     ：release 未签名，本地用 apksigner 签
+# 本地签名步骤见 docs/build-and-sign-termux.md。
+#
 # 相对现有 workflow 的改动：
-#   1.【必须】单变体：产物是 app-release-unsigned-signed.apk，不再有 app-full-/app-lite- 前缀，
-#      原来的两条 mv 会直接报 "No such file or directory"；这里改成按 *-signed.apk 通配匹配
-#   2.【必须】APK 改名 fcmfix-*.apk -> fcmself-*.apk（applicationId 已改为 sumicya.fcmself）
-#   3.【必须】LSPosed 模块仓库路径 com.kooritea.fcmfix -> sumicya.fcmself
-#   4. 增加 pull_request 触发，合并前就能跑 CI（现在只有 push 到 master 才跑）
-#   5. PR 只做编译验证：签名/重命名/上传/发布都限定 github.event_name == 'push'。
-#      实测（run 33964336726）编译已通过，但 Sign APK 步骤用 build-tools 37.0.0 的
-#      apksigner 以 exit code 2 失败——签名链路在本仓库从未成功过（master 历次 CI 都死在编译），
-#      把它挪出 PR 路径后，PR 就能给出干净的编译信号
-#   6. build-tools 固定 36.0.0（与 compileSdk 36 对齐），不再用 `ls | tail -n 1`
-#      抓 runner 上最新的 37.0.0；找不到 36.0.0 时再退回最新版
-#   7. PR 额外构建并上传 debug APK（debug 用调试签名，可直接安装到设备上测试）
-#   8. 构建失败时把日志尾部同时写进 job summary 和 PR 评论
-#      （Actions 日志文件在 blob.core.windows.net、job summary 也不在 check-run 的
-#       output 里，两者在受限网络下都读不到；PR 评论可以通过 api.github.com 读取）
+#   1.【必须】单变体：产物是 app-release-unsigned.apk / app-debug.apk，
+#      不再有 app-full- / app-lite- 前缀，原来的两条 mv 会直接失败
+#   2. 删除 Sign APK / Rename / Release / LSPosed 仓库推送等依赖 secrets 的步骤
+#      （实测 run 33964336726：编译已通过，Sign APK 用 build-tools 37.0.0 的 apksigner
+#       以 exit code 2 失败；仓库未配置 SIGNINGKEYBASE64 等 secrets，空 keystore 是最可能的原因）
+#   3. 增加 pull_request 触发，合并前就能跑 CI（原来只有 push 到 master 才跑）
+#   4. 构建失败时把日志尾部写进 job summary，并在 PR 上贴评论
+#      （Actions 日志文件在 blob.core.windows.net、job summary 也不在 check-run 的 output 里，
+#       受限网络下都读不到；PR 评论可以通过 api.github.com 读取）
 
 name: Android CI
 
@@ -65,22 +65,22 @@ jobs:
       shell: bash
       run: |
         set -o pipefail
-        ./gradlew assembleRelease 2>&1 | tee build.log
+        ./gradlew assembleRelease assembleDebug 2>&1 | tee build.log
 
-    # PR 用：debug 包自带调试签名，可直接安装测试
-    - name: Build debug APK (PR only)
-      if: github.event_name == 'pull_request'
+    - name: Rename artifacts
       shell: bash
       run: |
-        set -o pipefail
-        ./gradlew assembleDebug 2>&1 | tee -a build.log
+        cd ${{ github.workspace }}/app/build/outputs/apk
+        mv release/app-release-unsigned.apk release/fcmself-${{ env.VERSION_NAME }}-unsigned.apk
+        mv debug/app-debug.apk debug/fcmself-${{ env.VERSION_NAME }}-debug-signed.apk
 
-    - name: Upload debug apk (PR only)
-      if: github.event_name == 'pull_request'
+    - name: Upload apks
       uses: actions/upload-artifact@v4
       with:
-        name: fcmself-debug
-        path: ${{ github.workspace }}/app/build/outputs/apk/debug/app-debug.apk
+        name: fcmself-${{ env.VERSION_NAME }}
+        path: |
+          ${{ github.workspace }}/app/build/outputs/apk/release/fcmself-${{ env.VERSION_NAME }}-unsigned.apk
+          ${{ github.workspace }}/app/build/outputs/apk/debug/fcmself-${{ env.VERSION_NAME }}-debug-signed.apk
 
     - name: Dump build log tail on failure
       if: failure()
@@ -108,73 +108,3 @@ jobs:
         gh pr comment "${{ github.event.pull_request.number }}" \
           --repo "${{ github.repository }}" \
           --body-file /tmp/build-log-tail.md
-
-    - name: Setup build tool version variable
-      if: github.event_name == 'push'
-      shell: bash
-      run: |
-        BT_DIR=/usr/local/lib/android/sdk/build-tools
-        if [ -d "$BT_DIR/36.0.0" ]; then
-          BUILD_TOOL_VERSION=36.0.0
-        else
-          BUILD_TOOL_VERSION=$(ls "$BT_DIR" | tail -n 1)
-        fi
-        echo "BUILD_TOOL_VERSION=$BUILD_TOOL_VERSION" >> $GITHUB_ENV
-        echo "Using build tool version $BUILD_TOOL_VERSION"
-
-    - name: Sign APK
-      if: github.event_name == 'push'
-      uses: r0adkll/sign-android-release@v1
-      with:
-        releaseDirectory: ${{ github.workspace }}/app/build/outputs/apk/release
-        signingKeyBase64: ${{ secrets.SIGNINGKEYBASE64 }}
-        alias: ${{ secrets.ALIAS }}
-        keyStorePassword: ${{ secrets.KEYSTOREPASSWORD }}
-        keyPassword: ${{ secrets.KEYPASSWORD }}
-      env:
-        BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOL_VERSION }}
-
-    - name: Rename
-      if: github.event_name == 'push'
-      shell: bash
-      run: |
-        cd ${{ github.workspace }}/app/build/outputs/apk/release
-        SIGNED_APK=$(ls *-signed.apk | head -n 1)
-        mv "$SIGNED_APK" fcmself-${{ env.VERSION_NAME }}.apk
-
-    - name: Upload built apk
-      if: github.event_name == 'push'
-      uses: actions/upload-artifact@v4
-      with:
-        name: release
-        path: |
-          ${{ github.workspace }}/app/build/outputs/apk/release/fcmself-${{ env.VERSION_NAME }}.apk
-
-    - name: Release
-      if: github.event_name == 'push'
-      uses: softprops/action-gh-release@v2
-      with:
-        name: "Auto Release ${{ env.VERSION_NAME }}"
-        tag_name: ${{ env.VERSION_CODE }}-${{ env.VERSION_NAME }}
-        token: "${{ secrets.TOKEN }}"
-        files: |
-          ${{ github.workspace }}/app/build/outputs/apk/release/fcmself-${{ env.VERSION_NAME }}.apk
-
-    - uses: dorny/paths-filter@v3
-      if: github.event_name == 'push'
-      id: changes
-      with:
-        filters: |
-          src:
-            - 'app/build.gradle'
-
-    - name: Release lsposed module repository
-      if: github.event_name == 'push' && steps.changes.outputs.src == 'true'
-      uses: softprops/action-gh-release@v2
-      with:
-        name: "Auto Release ${{ env.VERSION_NAME }}"
-        tag_name: ${{ env.VERSION_CODE }}-${{ env.VERSION_NAME }}
-        repository: Xposed-Modules-Repo/sumicya.fcmself
-        token: "${{ secrets.TOKEN_CLASSIC }}"
-        files: |
-          ${{ github.workspace }}/app/build/outputs/apk/release/fcmself-${{ env.VERSION_NAME }}.apk
