@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix.util;
+package com.sumicya.fcmself.util;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;

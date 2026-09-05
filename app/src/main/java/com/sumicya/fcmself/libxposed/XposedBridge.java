@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix.libxposed;
+package com.sumicya.fcmself.libxposed;
 
 import android.content.SharedPreferences;
 import android.util.Log;
@@ -31,6 +31,8 @@ import io.github.libxposed.api.XposedInterface;
  */
 public final class XposedBridge {
 
+    private static final String LOG_TAG = "fcmself";
+
     private static XposedInterface xposedInterface;
 
     /** member -> 该成员上挂载的所有回调（按挂载顺序） */
@@ -45,8 +47,17 @@ public final class XposedBridge {
         xposedInterface = xposed;
     }
 
+    /** 日志同时写入 logcat 与 LSPosed 日志（框架尚未初始化时只写 logcat）。 */
     public static void log(String text) {
-        android.util.Log.i("fcmfix", text);
+        Log.i(LOG_TAG, text);
+        XposedInterface xposed = xposedInterface;
+        if (xposed != null) {
+            try {
+                xposed.log(text);
+            } catch (Throwable ignored) {
+                // 框架日志不可用时忽略，logcat 里已经有一份
+            }
+        }
     }
 
     public static SharedPreferences getRemotePreferences(String group) {

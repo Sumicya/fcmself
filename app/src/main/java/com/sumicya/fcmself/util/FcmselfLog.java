@@ -1,32 +1,32 @@
-package com.kooritea.fcmfix.util;
+package com.sumicya.fcmself.util;
 
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-import com.kooritea.fcmfix.config.FcmfixConfig;
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.xposed.XposedModule;
+import com.sumicya.fcmself.config.FcmselfConfig;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.xposed.XposedModule;
 
 /**
- * fcmfix 统一日志。
+ * fcmself 统一日志。
  *
  * <p>每条日志都会：
  * <ul>
- *   <li>写入 {@code Log.d(FcmfixLog.TAG, ...)}；</li>
+ *   <li>写入 {@code Log.d(FcmselfLog.TAG, ...)}；</li>
  *   <li>写入 LSPosed 日志（{@link XposedBridge#log}）；</li>
- *   <li>诊断类日志（{@code diagnostics=true}）额外通过广播 {@link FcmfixConfig#ACTION_LOG}
+ *   <li>诊断类日志（{@code diagnostics=true}）额外通过广播 {@link FcmselfConfig#ACTION_LOG}
  *       转发到 GMS 日志（由 ReconnectManagerFix 接收），便于在 FCM Diagnostics 中查看。</li>
  * </ul>
  */
-public final class FcmfixLog {
+public final class FcmselfLog {
 
-    public static final String TAG = "FcmFix";
+    public static final String TAG = "FcmSelf";
 
     /** 当前模块运行的进程身份（system_server 为 "android"，否则为包名） */
     private static String selfPackageName = "UNKNOWN";
 
-    private FcmfixLog() {
+    private FcmselfLog() {
     }
 
     public static void setSelfPackageName(String packageName) {
@@ -43,9 +43,9 @@ public final class FcmfixLog {
 
     public static void log(String text, boolean diagnostics) {
         Log.d(TAG, text);
-        String line = "[fcmfix] [" + selfPackageName + "]" + text;
+        String line = "[fcmself] [" + selfPackageName + "]" + text;
         if (diagnostics) {
-            Intent logIntent = new Intent(FcmfixConfig.ACTION_LOG);
+            Intent logIntent = new Intent(FcmselfConfig.ACTION_LOG);
             logIntent.putExtra("text", line);
             try {
                 Context context = XposedModule.getContext();

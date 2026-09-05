@@ -1,11 +1,11 @@
-package com.kooritea.fcmfix.util;
+package com.sumicya.fcmself.util;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.libxposed.XposedHelpers;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.libxposed.XposedHelpers;
 
 public class XposedUtils {
 

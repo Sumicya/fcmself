@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix.xposed;
+package com.sumicya.fcmself.xposed;
 
 import android.content.Intent;
 import android.os.Build;
@@ -6,11 +6,11 @@ import android.os.Build;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 
-import com.kooritea.fcmfix.config.FcmfixConfig;
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.util.IceboxUtils;
-import com.kooritea.fcmfix.util.XposedUtils;
+import com.sumicya.fcmself.config.FcmselfConfig;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.util.IceboxUtils;
+import com.sumicya.fcmself.util.XposedUtils;
 
 /**
  * BroadcastFix - 广播修复模块
@@ -67,7 +67,7 @@ public class BroadcastFix extends XposedModule {
                 && targetMethod.getParameters()[argsIndex[1]].getType() == int.class) {
             createBroadcastIntentLockedHooker(argsIndex[0], argsIndex[1], targetMethod);
         } else {
-            printLog("broadcastIntentLocked hook 位置查找失败，fcmfix将不会工作。");
+            printLog("broadcastIntentLocked hook 位置查找失败，fcmself将不会工作。");
         }
     }
 
@@ -140,7 +140,7 @@ public class BroadcastFix extends XposedModule {
         XposedBridge.hookMethod(method, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam methodHookParam) {
-                if (!FcmfixConfig.isBootComplete()) {
+                if (!FcmselfConfig.isBootComplete()) {
                     return;
                 }
                 if (methodHookParam.args[finalIntent_args_index] == null) {

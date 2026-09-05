@@ -1,14 +1,14 @@
-package com.kooritea.fcmfix.xposed;
+package com.sumicya.fcmself.xposed;
 
 import android.os.Build;
 import android.service.notification.NotificationListenerService;
 
 import java.lang.reflect.Method;
 
-import com.kooritea.fcmfix.config.FcmfixConfig;
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.libxposed.XposedHelpers;
+import com.sumicya.fcmself.config.FcmselfConfig;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.libxposed.XposedHelpers;
 
 /**
  * 通知保持模块 - 防止系统自动清除 FCM 通知
@@ -101,11 +101,11 @@ public class KeepNotification extends XposedModule {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 // 系统启动完成前不介入
-                if (!FcmfixConfig.isBootComplete()) {
+                if (!FcmselfConfig.isBootComplete()) {
                     return;
                 }
                 // 启用了"禁用自动清理通知"且是白名单目标应用
-                if (getBooleanConfig(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false)
+                if (getBooleanConfig(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false)
                         && targetIsAllow((String) param.args[finalPkgArgsIndex])) {
                     int reason = (int) param.args[finalReasonArgsIndex];
 

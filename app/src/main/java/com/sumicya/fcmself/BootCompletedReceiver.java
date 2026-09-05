@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix;
+package com.sumicya.fcmself;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -8,6 +8,6 @@ import android.util.Log;
 public class BootCompletedReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        Log.i("fcmfix", "waiting load config");
+        Log.i("fcmself", "waiting load config");
     }
 }

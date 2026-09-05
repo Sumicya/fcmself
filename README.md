@@ -1,4 +1,4 @@
-# FCM Fix - FCM 推送修复工具
+# fcmself - FCM 推送修复工具
 
 [![Android CI](https://github.com/Sumicya/fcmself/workflows/Android%20CI/badge.svg)](https://github.com/Sumicya/fcmself/actions)
 
@@ -28,7 +28,7 @@
 
 FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应用之间用于推送通知的长链接。
 一般的工作流程为：应用服务器将消息发送到 Google 服务器，Google 服务器将消息推送给 GMS 应用，GMS 应用通过广播传递给应用，应用通过接收到的 FCM 消息决定是否发送通知和通知内容。
-其中 GMS 通过 FCM 广播通知应用时，如果应用处于非运行状态，就会出现 `Failed to broadcast to stopped app`，fcmfix 主要就是解决这个问题。
+其中 GMS 通过 FCM 广播通知应用时，如果应用处于非运行状态，就会出现 `Failed to broadcast to stopped app`，fcmself 主要就是解决这个问题。
 
 ## 系统要求
 
@@ -84,18 +84,18 @@ FCM 是 Android 中由 Google 维护的一条介于 Google 服务器与 GMS 应�
 
 - `libxposed/`：传统 Xposed API 风格的封装层，底层桥接到 LSPosed `XposedInterface`。
   同一方法重复挂载多个回调时只安装一个底层拦截器，避免回调重复执行。
-- `config/FcmfixConfig`：配置中心（白名单/开关/启动时机），system_server 启动完成后 60 秒才介入广播。
+- `config/FcmselfConfig`：配置中心（白名单/开关/启动时机），system_server 启动完成后 60 秒才介入广播。
 - 各 Fix 模块独立 try/catch，单个 Hook 点缺失/失败不影响其它模块。
 
 ## 项目结构
 
 ```
 app/
-├── src/main/java/com/kooritea/fcmfix/
+├── src/main/java/com/sumicya/fcmself/
 │   ├── XposedMain.java              # LSPosed 入口（Hook 模块清单登记处）
 │   ├── MainActivity.java            # 设置界面（白名单/开关）
 │   ├── BootCompletedReceiver.java
-│   ├── config/FcmfixConfig.java     # 配置中心
+│   ├── config/FcmselfConfig.java    # 配置中心
 │   ├── libxposed/                   # Xposed API 兼容层（桥接 LSPosed）
 │   ├── util/                        # 工具类（日志、IceBox 等）
 │   └── xposed/                      # Hook 模块
@@ -118,8 +118,17 @@ app/
 ```
 
 CI 在 push 到 master 与 pull_request 上都会构建；构建失败时日志尾部会写进 job summary。
-push 到 master 时自动签名并创建 Release（`fcmfix-*.apk`），
+push 到 master 时自动签名并创建 Release（`fcmself-*.apk`），
 `app/build.gradle` 有变更时额外推送到 LSPosed 模块仓库。
+
+## 升级说明
+
+本模块的 applicationId 已从 `com.kooritea.fcmfix` 改为 `com.sumicya.fcmself`（LSPosed 模块仓库路径同步改为
+`Xposed-Modules-Repo/com.sumicya.fcmself`）。LSPosed 的远程配置按模块包名隔离，因此：
+
+- 旧版本不会自动升级为新版本，需要先在 LSPosed 中停用并卸载旧模块，再安装新模块；
+- 旧模块里勾选的白名单**不会迁移**，安装后需要重新选择目标应用；
+- GMS 内的重连修复参数存放在 GMS 自己的 `fcmself_config` 里，需要在 FCM Diagnostics 页面重新开启一次。
 
 ## 已知问题
 

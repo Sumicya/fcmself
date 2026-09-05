@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix.xposed;
+package com.sumicya.fcmself.xposed;
 
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
@@ -15,11 +15,11 @@ import android.os.UserManager;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
-import com.kooritea.fcmfix.config.FcmfixConfig;
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.libxposed.XposedHelpers;
-import com.kooritea.fcmfix.util.FcmfixLog;
+import com.sumicya.fcmself.config.FcmselfConfig;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.libxposed.XposedHelpers;
+import com.sumicya.fcmself.util.FcmselfLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,18 +27,18 @@ import java.util.List;
 import static android.content.Context.NOTIFICATION_SERVICE;
 
 /**
- * 所有 fcmfix Hook 模块的基类。
+ * 所有 fcmself Hook 模块的基类。
  *
  * <p>职责：
  * <ul>
  *   <li>捕获本进程的 {@link Context}（Hook {@code ContextWrapper.attachBaseContext}），
  *       并在用户解锁后触发配置加载；</li>
  *   <li>维护模块实例列表，配置就绪后逐个回调 {@link #onCanReadConfig()}；</li>
- *   <li>提供各 Fix 模块共用的工具：日志（委托 {@link FcmfixLog}）、白名单/开关判断
- *       （委托 {@link FcmfixConfig}）、FCM Intent 识别、通知发送。</li>
+ *   <li>提供各 Fix 模块共用的工具：日志（委托 {@link FcmselfLog}）、白名单/开关判断
+ *       （委托 {@link FcmselfConfig}）、FCM Intent 识别、通知发送。</li>
  * </ul>
  *
- * <p>具体配置与启动时机逻辑见 {@link FcmfixConfig}。
+ * <p>具体配置与启动时机逻辑见 {@link FcmselfConfig}。
  */
 public abstract class XposedModule {
 
@@ -114,7 +114,7 @@ public abstract class XposedModule {
      */
     private static void callAllOnCanReadConfig() {
         initReceiver();
-        FcmfixConfig.onUserUnlocked();
+        FcmselfConfig.onUserUnlocked();
         List<XposedModule> snapshot;
         synchronized (instances) {
             snapshot = new ArrayList<>(instances);
@@ -128,7 +128,7 @@ public abstract class XposedModule {
         try {
             instance.onCanReadConfig();
         } catch (Throwable e) {
-            FcmfixLog.log("onCanReadConfig 失败: " + e.getMessage());
+            FcmselfLog.log("onCanReadConfig 失败: " + e.getMessage());
         }
     }
 
@@ -144,8 +144,8 @@ public abstract class XposedModule {
     private static final BroadcastReceiver configUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context _context, Intent intent) {
-            if (FcmfixConfig.ACTION_UPDATE_CONFIG.equals(intent.getAction())) {
-                FcmfixConfig.load();
+            if (FcmselfConfig.ACTION_UPDATE_CONFIG.equals(intent.getAction())) {
+                FcmselfConfig.load();
             }
         }
     };
@@ -154,14 +154,14 @@ public abstract class XposedModule {
         @Override
         public void onReceive(Context _context, Intent intent) {
             if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
-                    && FcmfixConfig.SELF_PACKAGE.equals(intent.getData().getSchemeSpecificPart())) {
+                    && FcmselfConfig.SELF_PACKAGE.equals(intent.getData().getSchemeSpecificPart())) {
                 Bundle extras = intent.getExtras();
                 if (extras.containsKey(Intent.EXTRA_REPLACING) && extras.getBoolean(Intent.EXTRA_REPLACING)) {
                     return;
                 }
-                onUninstallFcmfix();
-                if ("android".equals(FcmfixLog.getSelfPackageName())) {
-                    FcmfixLog.log("Fcmfix已卸载，重启后停止生效。");
+                onUninstallSelf();
+                if ("android".equals(FcmselfLog.getSelfPackageName())) {
+                    FcmselfLog.log("Fcmself已卸载，重启后停止生效。");
                 }
             }
         }
@@ -172,7 +172,7 @@ public abstract class XposedModule {
         if (!isInitReceiver && context != null) {
             isInitReceiver = true;
 
-            IntentFilter updateConfigIntentFilter = new IntentFilter(FcmfixConfig.ACTION_UPDATE_CONFIG);
+            IntentFilter updateConfigIntentFilter = new IntentFilter(FcmselfConfig.ACTION_UPDATE_CONFIG);
             if (Build.VERSION.SDK_INT >= 34) {
                 context.registerReceiver(configUpdateReceiver, updateConfigIntentFilter, Context.RECEIVER_EXPORTED);
             } else {
@@ -185,9 +185,9 @@ public abstract class XposedModule {
         }
     }
 
-    private static void onUninstallFcmfix() {
+    private static void onUninstallSelf() {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
-        NotificationChannel channel = notificationManager.getNotificationChannel("fcmfix");
+        NotificationChannel channel = notificationManager.getNotificationChannel("fcmself");
         if (channel != null) {
             notificationManager.deleteNotificationChannel(channel.getId());
         }
@@ -199,22 +199,22 @@ public abstract class XposedModule {
 
     // 注意：保持 static（部分模块如 OplusProxyFix 从静态方法中调用）
     protected static void printLog(String text) {
-        FcmfixLog.log(text);
+        FcmselfLog.log(text);
     }
 
     protected static void printLog(String text, Boolean isDiagnosticsLog) {
-        FcmfixLog.log(text, isDiagnosticsLog);
+        FcmselfLog.log(text, isDiagnosticsLog);
     }
 
     /**
-     * 目标应用是否在白名单内（fcmfix 自身恒为 true）。
+     * 目标应用是否在白名单内（fcmself 自身恒为 true）。
      */
     protected boolean targetIsAllow(String packageName) {
-        return FcmfixConfig.isAllowed(packageName);
+        return FcmselfConfig.isAllowed(packageName);
     }
 
     protected boolean getBooleanConfig(String key, boolean defaultValue) {
-        return FcmfixConfig.getBoolean(key, defaultValue);
+        return FcmselfConfig.getBoolean(key, defaultValue);
     }
 
     protected void sendNotification(String title) {
@@ -229,10 +229,10 @@ public abstract class XposedModule {
     protected void sendNotification(String title, String content, PendingIntent pendingIntent) {
         printLog(title, false);
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
-        createFcmfixChannel(notificationManager);
-        NotificationCompat.Builder notification = new NotificationCompat.Builder(context, "fcmfix")
+        createNotificationChannel(notificationManager);
+        NotificationCompat.Builder notification = new NotificationCompat.Builder(context, "fcmself")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("[fcmfix]" + title)
+                .setContentTitle("[fcmself]" + title)
                 .setContentText(content)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT);
         if (pendingIntent != null) {
@@ -241,10 +241,10 @@ public abstract class XposedModule {
         notificationManager.notify((int) System.currentTimeMillis(), notification.build());
     }
 
-    protected void createFcmfixChannel(NotificationManagerCompat notificationManager) {
-        if (notificationManager.getNotificationChannel("fcmfix") == null) {
-            NotificationChannel channel = new NotificationChannel("fcmfix", "fcmfix", NotificationManager.IMPORTANCE_HIGH);
-            channel.setDescription("[xposed] fcmfix");
+    protected void createNotificationChannel(NotificationManagerCompat notificationManager) {
+        if (notificationManager.getNotificationChannel("fcmself") == null) {
+            NotificationChannel channel = new NotificationChannel("fcmself", "fcmself", NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("[xposed] fcmself");
             notificationManager.createNotificationChannel(channel);
         }
     }

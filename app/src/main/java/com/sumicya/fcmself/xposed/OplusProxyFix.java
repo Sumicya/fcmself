@@ -1,12 +1,12 @@
-package com.kooritea.fcmfix.xposed;
+package com.sumicya.fcmself.xposed;
 
 import android.content.pm.PackageManager;
 import android.os.WorkSource;
 
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XC_MethodReplacement;
-import com.kooritea.fcmfix.libxposed.XposedHelpers;
-import com.kooritea.fcmfix.util.XposedUtils;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XC_MethodReplacement;
+import com.sumicya.fcmself.libxposed.XposedHelpers;
+import com.sumicya.fcmself.util.XposedUtils;
 
 /**
  * OPPO/OnePlus ColorOS 专用 FCM 修复模块
@@ -144,7 +144,7 @@ public class OplusProxyFix extends XposedModule {
             try {
                 // 尝试 4 参数版本
                 XposedHelpers.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
-                    uid, ws, tag, "FCMFix");
+                    uid, ws, tag, "FcmSelf");
                 s_useFourParams = true;
                 printLog("unfreezeIfNeed using 4 params: uid=" + uid + ", pkg=" + target);
             } catch (Throwable e) {
@@ -160,7 +160,7 @@ public class OplusProxyFix extends XposedModule {
             try {
                 if (s_useFourParams) {
                     XposedHelpers.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
-                        uid, ws, tag, "FCMFix");
+                        uid, ws, tag, "FcmSelf");
                 } else {
                     XposedHelpers.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
                         uid, ws, tag);

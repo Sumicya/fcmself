@@ -1,13 +1,13 @@
-package com.kooritea.fcmfix.xposed;
+package com.sumicya.fcmself.xposed;
 
 import android.content.Context;
 
 import java.lang.reflect.Field;
 import java.util.List;
 
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XposedHelpers;
-import com.kooritea.fcmfix.util.XposedUtils;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XposedHelpers;
+import com.sumicya.fcmself.util.XposedUtils;
 
 /**
  * MIUI PowerKeeper 电源管理修复模块
@@ -52,7 +52,7 @@ public class PowerkeeperFix extends XposedModule {
 
             // 2. Hook SimpleSettings.Misc.getBoolean()，绕过 GMS 控制限制
             Class<?> Misc = XposedHelpers.findClassIfExists("com.miui.powerkeeper.provider.SimpleSettings.Misc", classLoader);
-            printLog("[fcmfix] start hook com.miui.powerkeeper.provider.SimpleSettings.Misc.getBoolean");
+            printLog("[fcmself] start hook com.miui.powerkeeper.provider.SimpleSettings.Misc.getBoolean");
             XposedUtils.findAndHookMethod(Misc, "getBoolean", 3, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam methodHookParam) throws Throwable {
@@ -116,7 +116,7 @@ public class PowerkeeperFix extends XposedModule {
                     }
                 }
             };
-            printLog("[fcmfix] start hook com.miui.powerkeeper.millet.MilletPolicy constructor");
+            printLog("[fcmself] start hook com.miui.powerkeeper.millet.MilletPolicy constructor");
             XposedHelpers.findAndHookConstructor(MilletPolicy, Context.class, methodHook);
         } catch (XposedHelpers.ClassNotFoundError | NoSuchMethodError e) {
             printLog("No Such Method com.miui.powerkeeper.millet.MilletPolicy constructor");

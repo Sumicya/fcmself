@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix.xposed;
+package com.sumicya.fcmself.xposed;
 
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
@@ -16,7 +16,7 @@ import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
-import com.kooritea.fcmfix.config.FcmfixConfig;
+import com.sumicya.fcmself.config.FcmselfConfig;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -25,10 +25,10 @@ import java.lang.reflect.Modifier;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.libxposed.XposedHelpers;
-import com.kooritea.fcmfix.util.XposedUtils;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.libxposed.XposedHelpers;
+import com.sumicya.fcmself.util.XposedUtils;
 
 /**
  * ReconnectManagerFix - GMS 长连接重连修复模块（运行在 com.google.android.gms 进程）
@@ -39,8 +39,8 @@ import com.kooritea.fcmfix.util.XposedUtils;
  * <ul>
  *   <li>固定心跳间隔（heartbeatInterval）与重连间隔（reconnInterval，单位 ms，>1000 生效）；</li>
  *   <li>倒计时出现异常负值时主动发送 GCM_RECONNECT 广播触发重连；</li>
- *   <li>在 FCM Diagnostics 页面注入 RECONNECT / 打开 fcmfix 按钮；</li>
- *   <li>把 fcmfix 诊断日志转发到 GMS 日志（便于在 FCM Diagnostics 查看）。</li>
+ *   <li>在 FCM Diagnostics 页面注入 RECONNECT / 打开 fcmself 按钮；</li>
+ *   <li>把 fcmself 诊断日志转发到 GMS 日志（便于在 FCM Diagnostics 查看）。</li>
  * </ul>
  *
  * 工作原理：
@@ -54,7 +54,7 @@ import com.kooritea.fcmfix.util.XposedUtils;
  */
 public class ReconnectManagerFix extends XposedModule {
 
-    private static final String PREF_NAME = "fcmfix_config";
+    private static final String PREF_NAME = "fcmself_config";
     private static final String PREF_IS_INIT = "isInit";
     private static final String PREF_CONFIG_VERSION = "config_version";
     private static final String PREF_ENABLE = "enable";
@@ -99,7 +99,7 @@ public class ReconnectManagerFix extends XposedModule {
     protected void onCanReadConfig() throws Throwable {
         if (startHookFlag) {
             this.checkVersion();
-            FcmfixConfig.load();
+            FcmselfConfig.load();
         } else {
             startHookFlag = true;
         }
@@ -125,7 +125,7 @@ public class ReconnectManagerFix extends XposedModule {
                 @SuppressLint("UnspecifiedRegisterReceiverFlag")
                 @Override
                 protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
-                    IntentFilter intentFilter = new IntentFilter(FcmfixConfig.ACTION_LOG);
+                    IntentFilter intentFilter = new IntentFilter(FcmselfConfig.ACTION_LOG);
                     if (Build.VERSION.SDK_INT >= 34) {
                         context.registerReceiver(logBroadcastReceive, intentFilter, Context.RECEIVER_EXPORTED);
                     } else {
@@ -145,7 +145,7 @@ public class ReconnectManagerFix extends XposedModule {
                 }
             });
         } catch (Throwable e) {
-            XposedBridge.log("[fcmfix] GcmChimeraService hook 失败: " + e.getMessage());
+            XposedBridge.log("[fcmself] GcmChimeraService hook 失败: " + e.getMessage());
         }
     }
 
@@ -157,12 +157,12 @@ public class ReconnectManagerFix extends XposedModule {
         String versionName = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
         long versionCode = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
         if (versionCode < MIN_GMS_VERSION_CODE) {
-            printLog("当前为旧版GMS，请使用0.4.1版本FCMFIX，禁用重连修复功能");
+            printLog("当前为旧版GMS，请使用0.4.1版本FCMSELF，禁用重连修复功能");
             return;
         }
         if (!sharedPreferences.getBoolean(PREF_IS_INIT, false)
                 || !configVersion.equals(sharedPreferences.getString(PREF_CONFIG_VERSION, ""))) {
-            printLog("fcmfix_config init", true);
+            printLog("fcmself_config init", true);
             initConfig(sharedPreferences, versionName, versionCode);
             printLog("正在更新hook位置", true);
             findAndUpdateHookTarget(sharedPreferences);
@@ -181,7 +181,7 @@ public class ReconnectManagerFix extends XposedModule {
             return;
         }
         if (!sharedPreferences.getBoolean(PREF_ENABLE, false)) {
-            printLog("当前配置文件enable标识为false，FCMFIX退出", true);
+            printLog("当前配置文件enable标识为false，FCMSELF退出", true);
             return;
         }
         startHook();
@@ -222,7 +222,7 @@ public class ReconnectManagerFix extends XposedModule {
                     long hinterval = sharedPreferences.getLong(PREF_HEARTBEAT_INTERVAL, 0L);
                     long cinterval = sharedPreferences.getLong(PREF_RECONN_INTERVAL, 0L);
                     if ((hinterval > 1000) || (cinterval > 1000)) {
-                        param.setResult(param.getResult() + "[fcmfix locked]");
+                        param.setResult(param.getResult() + "[fcmself locked]");
                     }
                 }
             }
@@ -284,16 +284,16 @@ public class ReconnectManagerFix extends XposedModule {
         });
     }
 
-    /** 诊断日志广播接收器：把 fcmfix 日志写入 GMS 日志（FCM Diagnostics 可见）。 */
+    /** 诊断日志广播接收器：把 fcmself 日志写入 GMS 日志（FCM Diagnostics 可见）。 */
     private final BroadcastReceiver logBroadcastReceive = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (FcmfixConfig.ACTION_LOG.equals(intent.getAction())) {
+            if (FcmselfConfig.ACTION_LOG.equals(intent.getAction())) {
                 try {
                     XposedHelpers.callStaticMethod(GcmChimeraService, GcmChimeraServiceLogMethodName,
-                            new Class<?>[]{String.class, Object[].class}, "[fcmfix] " + intent.getStringExtra("text"), null);
+                            new Class<?>[]{String.class, Object[].class}, "[fcmself] " + intent.getStringExtra("text"), null);
                 } catch (Throwable e) {
-                    XposedBridge.log("[fcmfix] 输出日志到fcm失败： [fcmfix] " + intent.getStringExtra("text"));
+                    XposedBridge.log("[fcmself] 输出日志到fcm失败： [fcmself] " + intent.getStringExtra("text"));
                 }
             }
         }
@@ -372,7 +372,7 @@ public class ReconnectManagerFix extends XposedModule {
 
     /**
      * 在 GMS 的 FCM Diagnostics 页面注入两个按钮：
-     * RECONNECT（发送重连广播）、打开FCMFIX（启动本模块设置界面）。
+     * RECONNECT（发送重连广播）、打开 fcmself（启动本模块设置界面）。
      */
     private void addButton() {
         XposedHelpers.findAndHookMethod("com.google.android.gms.gcm.GcmChimeraDiagnostics", classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
@@ -391,16 +391,16 @@ public class ReconnectManagerFix extends XposedModule {
                 });
                 linearLayout2.addView(reConnectButton);
 
-                Button openFcmFixButton = new Button((ContextWrapper) param.thisObject);
-                openFcmFixButton.setText("打开FCMFIX");
-                openFcmFixButton.setOnClickListener(view -> {
+                Button openFcmSelfButton = new Button((ContextWrapper) param.thisObject);
+                openFcmSelfButton.setText("打开 fcmself");
+                openFcmSelfButton.setOnClickListener(view -> {
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    intent.setPackage(FcmfixConfig.SELF_PACKAGE);
-                    intent.setComponent(new ComponentName(FcmfixConfig.SELF_PACKAGE, FcmfixConfig.SELF_PACKAGE + ".MainActivity"));
+                    intent.setPackage(FcmselfConfig.SELF_PACKAGE);
+                    intent.setComponent(new ComponentName(FcmselfConfig.SELF_PACKAGE, FcmselfConfig.SELF_PACKAGE + ".MainActivity"));
                     context.startActivity(intent);
                 });
-                linearLayout2.addView(openFcmFixButton);
+                linearLayout2.addView(openFcmSelfButton);
             }
         });
     }

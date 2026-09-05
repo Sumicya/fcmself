@@ -41,7 +41,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="18sp"
-                    tools:text="fcmfix" />
+                    tools:text="fcmself" />
 
                 <TextView
                     android:id="@+id/includeFcm"
@@ -62,7 +62,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textSize="14sp"
-                    tools:text="com.kooritea.fcmfix"/>
+                    tools:text="com.sumicya.fcmself"/>
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

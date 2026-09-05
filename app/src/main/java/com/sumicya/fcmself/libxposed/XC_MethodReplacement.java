@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix.libxposed;
+package com.sumicya.fcmself.libxposed;
 
 public abstract class XC_MethodReplacement extends XC_MethodHook {
 

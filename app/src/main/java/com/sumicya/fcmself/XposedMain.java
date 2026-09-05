@@ -1,0 +1,102 @@
+package com.sumicya.fcmself;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.util.FcmselfLog;
+import com.sumicya.fcmself.xposed.AutoStartFix;
+import com.sumicya.fcmself.xposed.BroadcastFix;
+import com.sumicya.fcmself.xposed.KeepNotification;
+import com.sumicya.fcmself.xposed.MiuiLocalNotificationFix;
+import com.sumicya.fcmself.xposed.OplusProxyFix;
+import com.sumicya.fcmself.xposed.PowerkeeperFix;
+import com.sumicya.fcmself.xposed.ReconnectManagerFix;
+import com.sumicya.fcmself.xposed.XposedModule;
+
+import io.github.libxposed.api.XposedModuleInterface;
+
+/**
+ * fcmself LSPosed 入口。
+ *
+ * <p>入口只负责"按进程分发"，具体 Hook 哪些模块由下方的清单声明：
+ * <ul>
+ *   <li>{@link #SYSTEM_SERVER_MODULES}：system_server（进程身份 "android"）内安装的模块；</li>
+ *   <li>{@link #PACKAGE_MODULES}：目标应用包名 -> 该进程内安装的模块。</li>
+ * </ul>
+ * 新增一个 Hook 模块只需在对应清单里登记一行，无需改动分发逻辑。
+ *
+ * <p>每个模块独立 try/catch：单个模块安装失败只影响自身，不会阻断后续模块。
+ */
+public class XposedMain extends io.github.libxposed.api.XposedModule {
+
+    private static final String PKG_GMS = "com.google.android.gms";
+    private static final String PKG_POWERKEEPER = "com.miui.powerkeeper";
+
+    /** 单个 Hook 模块的构造方式。 */
+    private interface ModuleFactory {
+        XposedModule create(ClassLoader classLoader);
+    }
+
+    /** Hook 模块登记项（名字仅用于日志）。 */
+    private static final class ModuleEntry {
+        final String name;
+        final ModuleFactory factory;
+
+        ModuleEntry(String name, ModuleFactory factory) {
+            this.name = name;
+            this.factory = factory;
+        }
+    }
+
+    /** system_server 内安装的模块，顺序即安装顺序。 */
+    private static final List<ModuleEntry> SYSTEM_SERVER_MODULES = Arrays.asList(
+            new ModuleEntry("BroadcastFix", BroadcastFix::new),
+            new ModuleEntry("MiuiLocalNotificationFix", MiuiLocalNotificationFix::new),
+            new ModuleEntry("AutoStartFix", AutoStartFix::new),
+            new ModuleEntry("KeepNotification", KeepNotification::new),
+            new ModuleEntry("OplusProxyFix", OplusProxyFix::new));
+
+    /** 目标进程包名 -> 该进程内安装的模块。 */
+    private static final Map<String, List<ModuleEntry>> PACKAGE_MODULES = new HashMap<>();
+
+    static {
+        PACKAGE_MODULES.put(PKG_GMS, Collections.singletonList(
+                new ModuleEntry("ReconnectManagerFix", ReconnectManagerFix::new)));
+        PACKAGE_MODULES.put(PKG_POWERKEEPER, Collections.singletonList(
+                new ModuleEntry("PowerkeeperFix", PowerkeeperFix::new)));
+    }
+
+    @Override
+    public void onSystemServerStarting(XposedModuleInterface.SystemServerStartingParam param) {
+        XposedBridge.init(this);
+        FcmselfLog.setSelfPackageName("android");
+        installAll(SYSTEM_SERVER_MODULES, param.getClassLoader());
+    }
+
+    @Override
+    public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
+        // 只处理清单里登记过的进程；多用户/多进程场景下只在首个包实例上安装一次
+        List<ModuleEntry> modules = PACKAGE_MODULES.get(param.getPackageName());
+        if (modules == null || !param.isFirstPackage()) {
+            return;
+        }
+        XposedBridge.init(this);
+        FcmselfLog.setSelfPackageName(param.getPackageName());
+        installAll(modules, param.getClassLoader());
+    }
+
+    /** 逐个安装模块；单个模块失败仅记录日志，不影响其它模块。 */
+    private static void installAll(List<ModuleEntry> modules, ClassLoader classLoader) {
+        for (ModuleEntry entry : modules) {
+            try {
+                entry.factory.create(classLoader);
+            } catch (Throwable t) {
+                XposedBridge.log("[fcmself] 模块安装失败 " + entry.name + ": " + t);
+            }
+        }
+    }
+}

@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix.config;
+package com.sumicya.fcmself.config;
 
 import android.content.SharedPreferences;
 
@@ -7,11 +7,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.util.FcmfixLog;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.util.FcmselfLog;
 
 /**
- * fcmfix 运行期配置中心（每个进程一份，system_server / GMS / PowerKeeper 各自独立）。
+ * fcmself 运行期配置中心（每个进程一份，system_server / GMS / PowerKeeper 各自独立）。
  *
  * <p>配置来源：LSPosed 远程配置（模块 UI 写入的 SharedPreferences "config" 组）。
  *
@@ -23,10 +23,10 @@ import com.kooritea.fcmfix.util.FcmfixLog;
  *   <li>模块 UI 通过广播 {@link #ACTION_UPDATE_CONFIG} 触发重新加载。</li>
  * </ul>
  */
-public final class FcmfixConfig {
+public final class FcmselfConfig {
 
-    /** fcmfix 模块自身包名（始终视为允许） */
-    public static final String SELF_PACKAGE = "com.kooritea.fcmfix";
+    /** fcmself 模块自身包名（始终视为允许） */
+    public static final String SELF_PACKAGE = "com.sumicya.fcmself";
 
     // ---- 配置项键名（与模块 UI 保持一致） ----
     public static final String KEY_ALLOW_LIST = "allowList";
@@ -34,9 +34,9 @@ public final class FcmfixConfig {
     public static final String KEY_INCLUDE_ICEBOX_DISABLE_APP = "includeIceBoxDisableApp";
 
     /** 模块 UI 通知钩子侧重新加载配置 */
-    public static final String ACTION_UPDATE_CONFIG = "com.kooritea.fcmfix.update.config";
+    public static final String ACTION_UPDATE_CONFIG = "com.sumicya.fcmself.update.config";
     /** 诊断日志广播（ReconnectManagerFix 转发到 GMS 日志） */
-    public static final String ACTION_LOG = "com.kooritea.fcmfix.log";
+    public static final String ACTION_LOG = "com.sumicya.fcmself.log";
 
     /** 远程配置组名 */
     public static final String REMOTE_PREFS_GROUP = "config";
@@ -49,7 +49,7 @@ public final class FcmfixConfig {
     private static volatile boolean isBootComplete = false;
     private static Thread loadConfigThread = null;
 
-    private FcmfixConfig() {
+    private FcmselfConfig() {
     }
 
     /**
@@ -61,7 +61,7 @@ public final class FcmfixConfig {
     }
 
     /**
-     * 目标应用是否在白名单内（fcmfix 自身恒为 true）。
+     * 目标应用是否在白名单内（fcmself 自身恒为 true）。
      * 配置尚未加载完成时返回 false（fail-safe：宁可不介入）。
      */
     public static boolean isAllowed(String packageName) {
@@ -87,14 +87,14 @@ public final class FcmfixConfig {
 
     /** 用户解锁（或已解锁）时由 {@code XposedModule} 调用，触发配置加载与启动计时。 */
     public static void onUserUnlocked() {
-        if ("android".equals(FcmfixLog.getSelfPackageName())) {
+        if ("android".equals(FcmselfLog.getSelfPackageName())) {
             new Thread(() -> {
                 try {
                     Thread.sleep(BOOT_COMPLETE_DELAY_MS);
                     isBootComplete = true;
-                    FcmfixLog.log("Boot Complete");
+                    FcmselfLog.log("Boot Complete");
                 } catch (Throwable e) {
-                    FcmfixLog.log(e.getMessage());
+                    FcmselfLog.log(e.getMessage());
                 }
             }).start();
         } else {
@@ -131,8 +131,8 @@ public final class FcmfixConfig {
                         list = new HashSet<>();
                     }
                     allowList = list;
-                    if ("android".equals(FcmfixLog.getSelfPackageName())) {
-                        FcmfixLog.log("[Modern Xposed API]onUpdateConfig allowList size: " + list.size());
+                    if ("android".equals(FcmselfLog.getSelfPackageName())) {
+                        FcmselfLog.log("[Modern Xposed API]onUpdateConfig allowList size: " + list.size());
                     }
                     config.put(KEY_DISABLE_AUTO_CLEAN_NOTIFICATION,
                             remotePreferences.getBoolean(KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false));
@@ -140,7 +140,7 @@ public final class FcmfixConfig {
                             remotePreferences.getBoolean(KEY_INCLUDE_ICEBOX_DISABLE_APP, false));
                     config.put("init", true);
                 } catch (Throwable e) {
-                    FcmfixLog.log("通过现代Xposed API读取配置失败: " + e.getMessage());
+                    FcmselfLog.log("通过现代Xposed API读取配置失败: " + e.getMessage());
                 }
                 loadConfigThread = null;
             }

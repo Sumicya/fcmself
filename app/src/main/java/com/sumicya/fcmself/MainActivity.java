@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix;
+package com.sumicya.fcmself;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
@@ -44,18 +44,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import com.kooritea.fcmfix.config.FcmfixConfig;
-import com.kooritea.fcmfix.util.IceboxUtils;
+import com.sumicya.fcmself.config.FcmselfConfig;
+import com.sumicya.fcmself.util.IceboxUtils;
 
 /**
- * fcmfix 设置界面：
+ * fcmself 设置界面：
  * - 管理 FCM 目标应用白名单（写入 LSPosed 远程配置 "config" 组）；
  * - 开关：阻止自动清除通知 / 唤醒被 IceBox 冻结的应用；
  * - 菜单：全选含 FCM 的应用、打开 GMS FCM Diagnostics。
  */
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = "fcmfix.MainActivity";
+    private static final String TAG = "fcmself.MainActivity";
     /** 应用列表加载延时（等待权限/包扫描完成） */
     private static final long APP_LIST_DELAY_MS = 1000L;
 
@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
         try {
-            return xposedService.getRemotePreferences(FcmfixConfig.REMOTE_PREFS_GROUP);
+            return xposedService.getRemotePreferences(FcmselfConfig.REMOTE_PREFS_GROUP);
         } catch (Throwable e) {
             Log.e(TAG, "getRemotePreferences: " + e);
             return null;
@@ -113,14 +113,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void ensureDefaultConfigValues() {
         try {
-            if (!this.config.has(FcmfixConfig.KEY_ALLOW_LIST)) {
-                this.config.put(FcmfixConfig.KEY_ALLOW_LIST, new JSONArray());
+            if (!this.config.has(FcmselfConfig.KEY_ALLOW_LIST)) {
+                this.config.put(FcmselfConfig.KEY_ALLOW_LIST, new JSONArray());
             }
-            if (!this.config.has(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION)) {
-                this.config.put(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false);
+            if (!this.config.has(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION)) {
+                this.config.put(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false);
             }
-            if (!this.config.has(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP)) {
-                this.config.put(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, false);
+            if (!this.config.has(FcmselfConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP)) {
+                this.config.put(FcmselfConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, false);
             }
         } catch (JSONException e) {
             Log.e(TAG, "ensureDefaultConfig: " + e);
@@ -134,13 +134,13 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         this.allowList.clear();
-        this.allowList.addAll(pref.getStringSet(FcmfixConfig.KEY_ALLOW_LIST, new HashSet<>()));
+        this.allowList.addAll(pref.getStringSet(FcmselfConfig.KEY_ALLOW_LIST, new HashSet<>()));
         try {
-            this.config.put(FcmfixConfig.KEY_ALLOW_LIST, new JSONArray(this.allowList));
-            this.config.put(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION,
-                    pref.getBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false));
-            this.config.put(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP,
-                    pref.getBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, false));
+            this.config.put(FcmselfConfig.KEY_ALLOW_LIST, new JSONArray(this.allowList));
+            this.config.put(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION,
+                    pref.getBoolean(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, false));
+            this.config.put(FcmselfConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP,
+                    pref.getBoolean(FcmselfConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, false));
         } catch (JSONException e) {
             Log.e(TAG, "loadRemoteConfig: " + e);
         }
@@ -152,18 +152,18 @@ public class MainActivity extends AppCompatActivity {
             if (pref == null) {
                 throw new IllegalStateException("XposedService 未连接，无法写入远程配置");
             }
-            this.config.put(FcmfixConfig.KEY_ALLOW_LIST, new JSONArray(this.allowList));
+            this.config.put(FcmselfConfig.KEY_ALLOW_LIST, new JSONArray(this.allowList));
             boolean saved = pref.edit()
                     .putBoolean("init", true)
-                    .putStringSet(FcmfixConfig.KEY_ALLOW_LIST, new HashSet<>(this.allowList))
-                    .putBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, this.config.getBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION))
-                    .putBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, this.config.getBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP))
+                    .putStringSet(FcmselfConfig.KEY_ALLOW_LIST, new HashSet<>(this.allowList))
+                    .putBoolean(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, this.config.getBoolean(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION))
+                    .putBoolean(FcmselfConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, this.config.getBoolean(FcmselfConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP))
                     .commit();
             if (!saved) {
                 throw new IllegalStateException("配置写入失败");
             }
             // 通知各进程（system_server 等）重新加载配置
-            this.sendBroadcast(new Intent(FcmfixConfig.ACTION_UPDATE_CONFIG));
+            this.sendBroadcast(new Intent(FcmselfConfig.ACTION_UPDATE_CONFIG));
         } catch (Throwable e) {
             Log.e(TAG, "updateConfig: " + e);
             new AlertDialog.Builder(this).setTitle("更新配置文件失败").setMessage(e.getMessage()).show();
@@ -249,7 +249,7 @@ public class MainActivity extends AppCompatActivity {
             allowApps.addAll(noFcmApps);
             this.mAppList = allowApps;
             if (mAppList.isEmpty()
-                    || (mAppList.size() == 1 && FcmfixConfig.SELF_PACKAGE.equals(mAppList.get(0).packageName))) {
+                    || (mAppList.size() == 1 && FcmselfConfig.SELF_PACKAGE.equals(mAppList.get(0).packageName))) {
                 new AlertDialog.Builder(MainActivity.this)
                         .setTitle("请在系统设置中授予读取应用列表权限")
                         .setMessage("或直接编辑" + getApplicationContext().getFilesDir().getAbsolutePath() + "/config.json(需重启生效)")
@@ -350,14 +350,14 @@ public class MainActivity extends AppCompatActivity {
             MenuItem item = menu.getItem(i);
             if (MENU_DISABLE_AUTO_CLEAN.equals(item.getTitle())) {
                 try {
-                    item.setChecked(this.config.getBoolean(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION));
+                    item.setChecked(this.config.getBoolean(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION));
                 } catch (JSONException e) {
                     item.setChecked(false);
                 }
             }
             if (MENU_INCLUDE_ICEBOX.equals(item.getTitle())) {
                 try {
-                    item.setChecked(this.config.getBoolean(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP));
+                    item.setChecked(this.config.getBoolean(FcmselfConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP));
                 } catch (JSONException e) {
                     item.setChecked(false);
                 }
@@ -393,7 +393,7 @@ public class MainActivity extends AppCompatActivity {
         String title = menuItem.getTitle().toString();
         if (MENU_DISABLE_AUTO_CLEAN.equals(title)) {
             try {
-                this.config.put(FcmfixConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, !menuItem.isChecked());
+                this.config.put(FcmselfConfig.KEY_DISABLE_AUTO_CLEAN_NOTIFICATION, !menuItem.isChecked());
                 this.updateConfig();
             } catch (JSONException e) {
                 Log.e(TAG, "onOptionsItemSelected: " + e);
@@ -401,7 +401,7 @@ public class MainActivity extends AppCompatActivity {
         }
         if (MENU_INCLUDE_ICEBOX.equals(title)) {
             try {
-                this.config.put(FcmfixConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, !menuItem.isChecked());
+                this.config.put(FcmselfConfig.KEY_INCLUDE_ICEBOX_DISABLE_APP, !menuItem.isChecked());
                 this.updateConfig();
             } catch (JSONException e) {
                 Log.e(TAG, "onOptionsItemSelected: " + e);

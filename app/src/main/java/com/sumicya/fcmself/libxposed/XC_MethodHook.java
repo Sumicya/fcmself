@@ -1,4 +1,4 @@
-package com.kooritea.fcmfix.libxposed;
+package com.sumicya.fcmself.libxposed;
 
 import java.lang.reflect.Member;
 

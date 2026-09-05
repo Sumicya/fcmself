@@ -1,14 +1,14 @@
-package com.kooritea.fcmfix.xposed;
+package com.sumicya.fcmself.xposed;
 
 import android.content.Intent;
 
-import com.kooritea.fcmfix.util.XposedUtils;
+import com.sumicya.fcmself.util.XposedUtils;
 
 import java.lang.reflect.Method;
 
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.libxposed.XposedHelpers;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.libxposed.XposedHelpers;
 
 /**
  * AutoStartFix - 自启动修复模块
@@ -94,7 +94,7 @@ public class AutoStartFix extends XposedModule {
         // HyperOS: BroadcastQueueModernStubImpl 的两个方法
         try {
             Class<?> clazz = XposedHelpers.findClass("com.android.server.am.BroadcastQueueModernStubImpl", classLoader);
-            printLog("[fcmfix] start hook com.android.server.am.BroadcastQueueModernStubImpl.checkApplicationAutoStart");
+            printLog("[fcmself] start hook com.android.server.am.BroadcastQueueModernStubImpl.checkApplicationAutoStart");
             XposedUtils.findAndHookMethodAnyParam(clazz, "checkApplicationAutoStart", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam methodHookParam) {
@@ -108,7 +108,7 @@ public class AutoStartFix extends XposedModule {
                 }
             });
 
-            printLog("[fcmfix] start hook com.android.server.am.BroadcastQueueModernStubImpl.checkReceiverIfRestricted");
+            printLog("[fcmself] start hook com.android.server.am.BroadcastQueueModernStubImpl.checkReceiverIfRestricted");
             XposedUtils.findAndHookMethodAnyParam(clazz, "checkReceiverIfRestricted", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam methodHookParam) {
@@ -142,7 +142,7 @@ public class AutoStartFix extends XposedModule {
                 }
             };
 
-            printLog("[fcmfix] start hook com.android.server.am.AutoStartManagerServiceStubImpl.isAllowStartService");
+            printLog("[fcmself] start hook com.android.server.am.AutoStartManagerServiceStubImpl.isAllowStartService");
             XC_MethodHook.Unhook unhook1 = XposedUtils.tryFindAndHookMethod(clazz, "isAllowStartService", 3, methodHook);
             XC_MethodHook.Unhook unhook2 = XposedUtils.tryFindAndHookMethod(clazz, "isAllowStartService", 4, methodHook);
             if (unhook1 == null && unhook2 == null) {
@@ -155,7 +155,7 @@ public class AutoStartFix extends XposedModule {
         // SmartPowerService.shouldInterceptBroadcast
         try {
             Class<?> clazz = XposedHelpers.findClass("com.android.server.am.SmartPowerService", classLoader);
-            printLog("[fcmfix] start hook com.android.server.am.SmartPowerService.shouldInterceptBroadcast");
+            printLog("[fcmself] start hook com.android.server.am.SmartPowerService.shouldInterceptBroadcast");
             XposedUtils.findAndHookMethodAnyParam(clazz, "shouldInterceptBroadcast", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam methodHookParam) {

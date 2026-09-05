@@ -1,9 +1,9 @@
-package com.kooritea.fcmfix.xposed;
+package com.sumicya.fcmself.xposed;
 
 import java.lang.reflect.Method;
-import com.kooritea.fcmfix.libxposed.XC_MethodHook;
-import com.kooritea.fcmfix.libxposed.XposedBridge;
-import com.kooritea.fcmfix.libxposed.XposedHelpers;
+import com.sumicya.fcmself.libxposed.XC_MethodHook;
+import com.sumicya.fcmself.libxposed.XposedBridge;
+import com.sumicya.fcmself.libxposed.XposedHelpers;
 
 /**
  * MIUI 本地通知修复模块
@@ -22,7 +22,7 @@ import com.kooritea.fcmfix.libxposed.XposedHelpers;
  * - FCM 消息到达但状态栏无提示
  * - 需要确保重要通知不被系统拦截
  * 
- * @author fcmfix
+ * @author fcmself
  */
 public class MiuiLocalNotificationFix extends XposedModule {
 
