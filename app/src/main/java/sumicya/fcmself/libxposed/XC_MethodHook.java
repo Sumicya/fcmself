@@ -42,13 +42,6 @@ public abstract class XC_MethodHook {
             return throwable != null;
         }
 
-        public Object getResultOrThrowable() throws Throwable {
-            if (throwable != null) {
-                throw throwable;
-            }
-            return result;
-        }
-
         public boolean isReturnEarly() {
             return returnEarly;
         }

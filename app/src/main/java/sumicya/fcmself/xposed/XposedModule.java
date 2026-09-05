@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -197,35 +196,29 @@ public abstract class XposedModule {
     }
 
     protected void sendNotification(String title) {
-        sendNotification(title, null, null);
-    }
-
-    protected void sendNotification(String title, String content) {
-        sendNotification(title, content, null);
+        sendNotification(title, null);
     }
 
     /**
      * 发一条模块自身的通知（Hook 失败提示、重连诊断等）。
      *
      * <p>直接用框架 {@link Notification.Builder}（渠道构造器需 API 26，本模块 minSdk 29），
-     * 不为一个通知把整个 androidx.core 打进 APK。
+     * 不为一个通知把整个 androidx.core 打进 APK。模块没有界面，通知不带点击意图。
      */
     @SuppressLint("MissingPermission")
-    protected void sendNotification(String title, String content, PendingIntent pendingIntent) {
+    protected void sendNotification(String title, String content) {
         printLog(title, false);
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
         createNotificationChannel(notificationManager);
-        Notification.Builder notification = new Notification.Builder(context, NOTIFICATION_CHANNEL)
+        Notification notification = new Notification.Builder(context, NOTIFICATION_CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle("[fcmself]" + title)
-                .setContentText(content);
-        if (pendingIntent != null) {
-            notification.setContentIntent(pendingIntent).setAutoCancel(true);
-        }
-        notificationManager.notify((int) System.currentTimeMillis(), notification.build());
+                .setContentText(content)
+                .build();
+        notificationManager.notify((int) System.currentTimeMillis(), notification);
     }
 
-    protected void createNotificationChannel(NotificationManager notificationManager) {
+    private void createNotificationChannel(NotificationManager notificationManager) {
         if (notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL) == null) {
             NotificationChannel channel = new NotificationChannel(
                     NOTIFICATION_CHANNEL, "fcmself", NotificationManager.IMPORTANCE_HIGH);

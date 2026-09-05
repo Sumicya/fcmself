@@ -1,6 +1,5 @@
 package sumicya.fcmself.libxposed;
 
-import android.content.SharedPreferences;
 import android.util.Log;
 
 import java.lang.reflect.Constructor;
@@ -63,11 +62,6 @@ public final class XposedBridge {
                 // 框架日志不可用时忽略，logcat 里已经有一份
             }
         }
-    }
-
-    public static SharedPreferences getRemotePreferences(String group) {
-        ensureInit();
-        return xposedInterface.getRemotePreferences(group);
     }
 
     public static XC_MethodHook.Unhook hookMethod(Member member, XC_MethodHook callback) {
