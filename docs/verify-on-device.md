@@ -211,7 +211,8 @@ Android 16（API 36）、LSPosed 2.2.0，验证时间 2026-09-06。
 | ColorOS 代理绕过与解冻 | 已验证 | `shouldProxy bypass`、`unfreezeIfNeed using 4 params: uid=10323` |
 | Hans 三个"整方法替换" | 已验证 | `registerGmsRestrictObserver hooked` / `updateGmsRestrict hooked` / `isGoogleRestricInfoOn hooked` |
 | 划掉后台（进程被**冻结**）后收到推送 | 能收到，但**未做归因** | 2026-09-06 实测：通知栏里有 9 条 `fork.risin42.nagramx` 通知（含当天消息），进程处于 `do_freezer_trap`、`stopped=false`。没有"停用模块 → 重启 → 同样操作"的对照组，所以不能证明是模块起的作用 |
-| 核心功能：应用被真正**停止**（`stopped=true`）时收到推送 | **未验证** | 需要先 `am force-stop` 再推送。这才是 `FLAG_INCLUDE_STOPPED_PACKAGES` 那部分代码针对的场景；划掉后台不会进入该状态 |
+| 核心功能：应用被真正**停止**（`stopped=true`）时收到推送 | **已验证** | 2026-09-06 08:15 实测：`am force-stop` 后 `stopped=true` → 推送到达，模块连打 5 次 `Add FLAG_INCLUDE_STOPPED_PACKAGES` + `unfreeze` → 应用进程以**新 pid** 重新起来（`ps` 从 25642 变 14634）并回到冻结态。广播确实送进了已停止的应用 |
+| 上一条的归因 | 不需要对照组 | AOSP 语义就是"停止态应用收不到不带 `FLAG_INCLUDE_STOPPED_PACKAGES` 的广播"，而模块只在 GMS 自己没带该 flag 时才补（`(intent.getFlags() & FLAG_INCLUDE_STOPPED_PACKAGES) == 0`），所以这次唤起是模块直接造成的 |
 | 60 秒日志节流 | 已验证 | `（期间另有 N 条同类日志已抑制）` |
 | 多应用生效（无白名单） | 已验证 | 同一份日志里 `fork.risin42.nagramx` 与 `com.roblox.client` 都被处理 |
 | `KeepNotification` 的实际拦截效果 | **未验证** | 拦下取消请求时不打日志，无法直接观测 |
