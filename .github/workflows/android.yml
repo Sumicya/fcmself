@@ -1,28 +1,14 @@
-# 建议的 CI 配置（需要手动覆盖到 .github/workflows/android.yml）
-#
-# 为什么单独放一个文件：Arena 侧使用的 GitHub App 没有 `workflows` 权限，
-# 推送 .github/workflows/* 会被远端拒绝
-# （"refusing to allow a GitHub App to create or update workflow ... without workflows permission"）。
-#
-# 用法：
-#   cp docs/android.yml.suggested .github/workflows/android.yml
-#
-# 这一版是「零 secrets」配置：仓库不需要配置任何签名密钥/发布 token。
-# CI 只做两件事——编译，以及上传两个产物：
+# Android CI —— 「零 secrets」配置：仓库不需要任何签名密钥 / 发布 token。
+# CI 只做三件事——跑单元测试、编译 debug + release 两个变体，以及上传两个产物：
 #   - fcmself-<版本>-debug-signed.apk ：debug 签名，可直接安装测试
 #   - fcmself-<版本>-unsigned.apk     ：release 未签名，本地用 apksigner 签
 # 本地签名步骤见 docs/build-and-sign-termux.md。
 #
-# 相对现有 workflow 的改动：
-#   1.【必须】单变体：产物是 app-release-unsigned.apk / app-debug.apk，
-#      不再有 app-full- / app-lite- 前缀，原来的两条 mv 会直接失败
-#   2. 删除 Sign APK / Rename / Release / LSPosed 仓库推送等依赖 secrets 的步骤
-#      （实测 run 33964336726：编译已通过，Sign APK 用 build-tools 37.0.0 的 apksigner
-#       以 exit code 2 失败；仓库未配置 SIGNINGKEYBASE64 等 secrets，空 keystore 是最可能的原因）
-#   3. 增加 pull_request 触发，合并前就能跑 CI（原来只有 push 到 master 才跑）
-#   4. 构建失败时把日志尾部写进 job summary，并在 PR 上贴评论
-#      （Actions 日志文件在 blob.core.windows.net、job summary 也不在 check-run 的 output 里，
-#       受限网络下都读不到；PR 评论可以通过 api.github.com 读取）
+# 要点：
+#   1. 单变体：产物是 app-release-unsigned.apk / app-debug.apk
+#   2. 先跑 ./gradlew test，参数下标解析的单元测试不过就不继续构建
+#   3. 构建失败时把日志尾部写进 job summary，并在 PR 上贴评论
+#   4. 触发 push 到 master 与 pull_request 到 master 两种事件
 
 name: Android CI
 
