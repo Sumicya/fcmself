@@ -6,6 +6,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.github.libxposed.api.XposedInterface;
+import io.github.libxposed.api.XposedModuleInterface;
+
 import sumicya.fcmself.util.FcmselfLog;
 import sumicya.fcmself.xposed.AutoStartFix;
 import sumicya.fcmself.xposed.BroadcastFix;
@@ -13,9 +16,6 @@ import sumicya.fcmself.xposed.KeepNotification;
 import sumicya.fcmself.xposed.OplusProxyFix;
 import sumicya.fcmself.xposed.ReconnectManagerFix;
 import sumicya.fcmself.xposed.XposedModule;
-
-import io.github.libxposed.api.XposedInterface;
-import io.github.libxposed.api.XposedModuleInterface;
 
 /**
  * fcmself LSPosed 入口。

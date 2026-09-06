@@ -19,6 +19,9 @@ public final class MethodArgs {
      * KeepNotification 用它确认 cancelAllNotificationsInt 的 (pkg, reason) 两个下标。
      */
     public static boolean matches(Class<?>[] paramTypes, int stringIndex, int intIndex) {
+        if (stringIndex < 0 || intIndex < 0) {
+            return false;
+        }
         int max = Math.max(stringIndex, intIndex);
         return paramTypes.length > max
                 && paramTypes[stringIndex] == String.class
@@ -27,6 +30,9 @@ public final class MethodArgs {
 
     /** 校验 (intentIndex, appOpIndex) 是否与真实签名相符。 */
     public static boolean matches(Class<?>[] paramTypes, int intentIndex, Class<?> intentType, int appOpIndex) {
+        if (intentIndex < 0 || appOpIndex < 0) {
+            return false;
+        }
         int max = Math.max(intentIndex, appOpIndex);
         return paramTypes.length > max
                 && paramTypes[intentIndex] == intentType

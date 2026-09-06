@@ -4,15 +4,15 @@ import android.content.pm.PackageManager;
 import android.os.SystemClock;
 import android.os.WorkSource;
 
-import sumicya.fcmself.util.Hooks;
-import sumicya.fcmself.util.Reflect;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import io.github.libxposed.api.XposedInterface;
+
+import sumicya.fcmself.util.Hooks;
+import sumicya.fcmself.util.Reflect;
 
 /**
  * OPPO/OnePlus ColorOS 专用 FCM 修复模块
@@ -43,13 +43,13 @@ public class OplusProxyFix extends XposedModule {
      */
     private static final long NEVER_PRINTED = -BYPASS_LOG_INTERVAL_MS * 2;
 
-    private static Object s_oplusProxyWakeLock = null;
-    private static volatile boolean s_useFourParams = false;
-    private static volatile boolean s_signatureDetected = false;
+    private static Object oplusProxyWakeLock = null;
+    private static volatile boolean useFourParams = false;
+    private static volatile boolean signatureDetected = false;
 
     public OplusProxyFix(XposedInterface api, ClassLoader classLoader) {
         super(api, classLoader);
-        
+
         // Hook OplusProxyWakeLock 和 OplusProxyBroadcast
         try {
             startHookOplusProxyWakeLock();
@@ -57,21 +57,21 @@ public class OplusProxyFix extends XposedModule {
         } catch (Throwable e) {
             printLog("hook error OplusProxy: " + e.getMessage());
         }
-        
+
         // 阻止 Hans 监听 GMS 状态更新
         try {
             startHookRegisterGmsRestrictObserver();
         } catch (Throwable e) {
             printLog("hook error registerGmsRestrictObserver: " + e.getMessage());
         }
-        
+
         // 拦截 Hans 更新 GMS 限制状态
         try {
             startHookUpdateGmsRestrict();
         } catch (Throwable e) {
             printLog("hook error updateGmsRestrict: " + e.getMessage());
         }
-        
+
         // 阻止判断 GMS 限制
         try {
             startHookIsGoogleRestricInfoOn();
@@ -121,11 +121,11 @@ public class OplusProxyFix extends XposedModule {
         Constructor<?> constructor = Reflect.findConstructorMostMatch(oplusWakelockClass);
 
         Hooks.hookAfter(api, constructor, (chain, error) -> {
-            if (s_oplusProxyWakeLock != null) {
+            if (oplusProxyWakeLock != null) {
                 printLog("warn: OplusProxyWakeLock constructed multiple times!");
                 return;
             }
-            s_oplusProxyWakeLock = chain.getThisObject();
+            oplusProxyWakeLock = chain.getThisObject();
             printLog("OplusProxyWakeLock instance captured");
         });
     }
@@ -146,12 +146,6 @@ public class OplusProxyFix extends XposedModule {
         }
     }
 
-    /**
-     * 解冻指定包名的应用
-     * 自动检测并使用正确的参数数量（3 参或 4 参）
-     * 
-     * @param target 目标应用包名
-     */
     /** 按包名节流的 bypass 日志（见 {@link #BYPASS_LOG_INTERVAL_MS}）。 */
     private static void logBypassThrottled(String pkgName, String callingPkg, String action) {
         long now = SystemClock.elapsedRealtime();
@@ -170,8 +164,14 @@ public class OplusProxyFix extends XposedModule {
         }
     }
 
+    /**
+     * 解冻指定包名的应用：首次调用时自动探测 unfreezeIfNeed 的参数个数（3 参或 4 参），
+     * 之后复用缓存的签名。
+     *
+     * @param target 目标应用包名
+     */
     public static void unfreeze(String target) {
-        if (s_oplusProxyWakeLock == null) {
+        if (oplusProxyWakeLock == null) {
             return;
         }
 
@@ -180,39 +180,39 @@ public class OplusProxyFix extends XposedModule {
             return;
         }
 
-        WorkSource ws = new WorkSource();
+        WorkSource workSource = new WorkSource();
         String tag = "FCMXX";
 
-        // 首次调用时检测签名
-        if (!s_signatureDetected) {
+        // 首次调用时探测签名，之后复用缓存的参数配置
+        if (!signatureDetected) {
             try {
-                // 尝试 4 参数版本
-                Reflect.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
-                    uid, ws, tag, "FcmSelf");
-                s_useFourParams = true;
+                // 先试 4 参数版本
+                invokeUnfreeze(uid, workSource, tag, true);
+                useFourParams = true;
                 printLog("unfreezeIfNeed using 4 params: uid=" + uid + ", pkg=" + target);
             } catch (Throwable e) {
                 // 降级到 3 参数版本
-                Reflect.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
-                    uid, ws, tag);
-                s_useFourParams = false;
+                invokeUnfreeze(uid, workSource, tag, false);
+                useFourParams = false;
                 printLog("unfreezeIfNeed using 3 params: uid=" + uid + ", pkg=" + target);
             }
-            s_signatureDetected = true;
+            signatureDetected = true;
         } else {
-            // 使用已缓存的参数配置
             try {
-                if (s_useFourParams) {
-                    Reflect.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
-                        uid, ws, tag, "FcmSelf");
-                } else {
-                    Reflect.callMethod(s_oplusProxyWakeLock, "unfreezeIfNeed", 
-                        uid, ws, tag);
-                }
+                invokeUnfreeze(uid, workSource, tag, useFourParams);
                 printLog("unfreeze: " + target + ", uid=" + uid);
             } catch (Throwable ignored) {
                 // 静默失败
             }
+        }
+    }
+
+    /** 按当前已知的参数个数调用 unfreezeIfNeed。 */
+    private static void invokeUnfreeze(int uid, WorkSource workSource, String tag, boolean fourParams) {
+        if (fourParams) {
+            Reflect.callMethod(oplusProxyWakeLock, "unfreezeIfNeed", uid, workSource, tag, "FcmSelf");
+        } else {
+            Reflect.callMethod(oplusProxyWakeLock, "unfreezeIfNeed", uid, workSource, tag);
         }
     }
 

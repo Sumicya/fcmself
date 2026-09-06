@@ -54,6 +54,15 @@ public class MethodArgsTest {
     }
 
     @Test
+    public void matches_returnsFalseForNegativeIndicesInsteadOfThrowing() {
+        Class<?>[] types = notificationSignature();
+        assertFalse(MethodArgs.matches(types, -1, 7));
+        assertFalse(MethodArgs.matches(types, 2, -1));
+        assertFalse(MethodArgs.matches(types, -1, FakeIntent.class, 13));
+        assertFalse(MethodArgs.matches(types, 3, FakeIntent.class, -1));
+    }
+
+    @Test
     public void matches_acceptsIntentAndAppOpPair() {
         Class<?>[] types = new Class<?>[20];
         for (int i = 0; i < types.length; i++) {

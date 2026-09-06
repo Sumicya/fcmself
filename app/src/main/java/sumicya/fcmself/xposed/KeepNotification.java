@@ -6,12 +6,12 @@ import android.service.notification.NotificationListenerService;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
+import io.github.libxposed.api.XposedInterface;
+
 import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.util.Hooks;
 import sumicya.fcmself.util.MethodArgs;
 import sumicya.fcmself.util.Reflect;
-
-import io.github.libxposed.api.XposedInterface;
 
 /**
  * 通知保持模块 - 防止系统自动清除 FCM 通知
@@ -65,46 +65,22 @@ public class KeepNotification extends XposedModule {
             throw new NoSuchMethodError(clazz.getName() + "#cancelAllNotificationsInt");
         }
 
-        int pkgArgsIndex;
-        int reasonArgsIndex;
-        // 各版本参数下标：包名恒为 2，原因代码随版本/签名变化
-        if (Build.VERSION.SDK_INT >= 30 && Build.VERSION.SDK_INT <= 33) {
-            pkgArgsIndex = 2;
-            reasonArgsIndex = 8;
-        } else if (Build.VERSION.SDK_INT == 34) {
-            if (targetMethod.getParameterTypes().length == 10) {
-                pkgArgsIndex = 2;
-                reasonArgsIndex = 8;
-            } else if (targetMethod.getParameterTypes().length == 8) {
-                pkgArgsIndex = 2;
-                reasonArgsIndex = 7;
-            } else {
-                throw new NoSuchMethodError();
-            }
-        } else if (Build.VERSION.SDK_INT >= 35) {
-            pkgArgsIndex = 2;
-            reasonArgsIndex = 7;
-        } else {
-            throw new NoSuchMethodError();
-        }
+        int[] indices = resolveIndices(targetMethod);
+        final int pkgIndex = indices[0];
+        final int reasonIndex = indices[1];
 
         // 下标是按系统版本硬编码的猜测值，ROM 或新版本系统可能改变签名。挂错下标会在
         // system_server 里抛 ClassCastException，或把无关的通知取消一并拦下，因此先按真实
         // 签名校验；不符就放弃这个 Hook（其它模块不受影响），并打出可供排查的签名信息。
         Class<?>[] paramTypes = targetMethod.getParameterTypes();
-        if (!MethodArgs.matches(paramTypes, pkgArgsIndex, reasonArgsIndex)) {
+        if (!MethodArgs.matches(paramTypes, pkgIndex, reasonIndex)) {
             printLog("cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦截通知："
                     + "API " + Build.VERSION.SDK_INT + "，参数=" + Arrays.toString(paramTypes)
-                    + "，预期 pkg@" + pkgArgsIndex + "(String) reason@" + reasonArgsIndex + "(int)");
+                    + "，预期 pkg@" + pkgIndex + "(String) reason@" + reasonIndex + "(int)");
             return;
         }
-        printLog("cancelAllNotificationsInt hook 参数：pkg@" + pkgArgsIndex
-                + " reason@" + reasonArgsIndex + "（API " + Build.VERSION.SDK_INT + "）");
-
-        // lambda 里只能引用 effectively final 的局部变量，两个下标在上面的分支里赋值过，
-        // 这里复制成 final 再捕获
-        final int pkgIndex = pkgArgsIndex;
-        final int reasonIndex = reasonArgsIndex;
+        printLog("cancelAllNotificationsInt hook 参数：pkg@" + pkgIndex
+                + " reason@" + reasonIndex + "（API " + Build.VERSION.SDK_INT + "）");
 
         // Hook 目标方法
         Hooks.hook(api, targetMethod, chain -> {
@@ -127,5 +103,31 @@ public class KeepNotification extends XposedModule {
             }
             return chain.proceed();
         });
+    }
+
+    /**
+     * 按系统版本解析 cancelAllNotificationsInt 的 (pkg, reason) 参数下标。
+     * 包名恒为 2，原因代码随版本 / 签名变化；不支持的版本抛 {@link NoSuchMethodError}。
+     */
+    private static int[] resolveIndices(Method targetMethod) {
+        final int pkgIndex = 2;
+        int reasonIndex;
+        int parameterCount = targetMethod.getParameterTypes().length;
+        if (Build.VERSION.SDK_INT >= 30 && Build.VERSION.SDK_INT <= 33) {
+            reasonIndex = 8;
+        } else if (Build.VERSION.SDK_INT == 34) {
+            if (parameterCount == 10) {
+                reasonIndex = 8;
+            } else if (parameterCount == 8) {
+                reasonIndex = 7;
+            } else {
+                throw new NoSuchMethodError();
+            }
+        } else if (Build.VERSION.SDK_INT >= 35) {
+            reasonIndex = 7;
+        } else {
+            throw new NoSuchMethodError();
+        }
+        return new int[]{pkgIndex, reasonIndex};
     }
 }
