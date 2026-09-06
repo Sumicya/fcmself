@@ -1,48 +1,39 @@
 ```
-# Compiled and binary files
-*.class
-*.o
-*.obj
-*.out
+# Gradle
+.gradle/
+build/
 
 # Dependencies
-.libs/
+node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+target/
 
 # Logs and temp files
 *.log
 *.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
 
 # Editors
+.vscode/
 .idea/
 
-# Coverage reports
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
 coverage/
 htmlcov/
-*.coverage
-
-# MyPy cache
-.mypy_cache/
-
-# Pytest cache
-.pytest_cache/
-
-# Gradle
-.gradle/
-
-# Target/build directories
-target/
-build/
-
-# Distribution files
-dist/
-
-# Virtual environments
-.venv/
-venv/
-__pycache__/
-
-# Node modules
-node_modules/
+.coverage
 
 # Compressed files
 *.zip
@@ -63,15 +54,4 @@ node_modules/
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-
-# System files
-.DS_Store
-Thumbs.db
-.env
-.env.local
-*.env.*
 ```

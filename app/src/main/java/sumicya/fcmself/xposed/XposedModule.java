@@ -87,14 +87,6 @@ public abstract class XposedModule {
         }
     }
 
-    // ------------------------------------------------------------------
-    // 进程身份 / 上下文
-    // ------------------------------------------------------------------
-
-    public static Context getContext() {
-        return contextRef != null ? contextRef.get() : null;
-    }
-
     private static boolean isUserUnlocked() {
         Context ctx = getContext();
         if (ctx == null) {

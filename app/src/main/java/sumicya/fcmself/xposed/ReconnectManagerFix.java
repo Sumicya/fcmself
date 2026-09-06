@@ -147,10 +147,13 @@ public class ReconnectManagerFix extends XposedModule {
                         }
                     });
             Hooks.hookMethod(api, this.GcmChimeraService, "onDestroy", new Class<?>[0], chain -> {
-                try {
-                    context.unregisterReceiver(logBroadcastReceive);
-                } catch (Throwable ignored) {
-                    // 接收器可能已经注销过
+                Context ctx = getContext();
+                if (ctx != null) {
+                    try {
+                        ctx.unregisterReceiver(logBroadcastReceive);
+                    } catch (Throwable ignored) {
+                        // 接收器可能已经注销过
+                    }
                 }
                 return chain.proceed();
             });
@@ -161,11 +164,16 @@ public class ReconnectManagerFix extends XposedModule {
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private void registerLogReceiver() {
+        Context ctx = getContext();
+        if (ctx == null) {
+            printLog("error: Context is null when registering log receiver");
+            return;
+        }
         IntentFilter intentFilter = new IntentFilter(FcmselfConfig.ACTION_LOG);
         if (Build.VERSION.SDK_INT >= 34) {
-            context.registerReceiver(logBroadcastReceive, intentFilter, Context.RECEIVER_EXPORTED);
+            ctx.registerReceiver(logBroadcastReceive, intentFilter, Context.RECEIVER_EXPORTED);
         } else {
-            context.registerReceiver(logBroadcastReceive, intentFilter);
+            ctx.registerReceiver(logBroadcastReceive, intentFilter);
         }
     }
 
@@ -173,9 +181,14 @@ public class ReconnectManagerFix extends XposedModule {
      * 检查 GMS 版本与本地配置，决定是否需要重新发现 hook 点或直接启用。
      */
     private void checkVersion() throws Throwable {
-        final SharedPreferences sharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String versionName = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
-        long versionCode = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
+        Context ctx = getContext();
+        if (ctx == null) {
+            printLog("error: Context is null in checkVersion");
+            return;
+        }
+        final SharedPreferences sharedPreferences = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        String versionName = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName;
+        long versionCode = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).getLongVersionCode();
         if (versionCode < MIN_GMS_VERSION_CODE) {
             printLog("当前为旧版GMS，请使用0.4.1版本FCMSELF，禁用重连修复功能");
             return;
@@ -224,7 +237,12 @@ public class ReconnectManagerFix extends XposedModule {
      * 按缓存的 hook 点安装重连修复 Hook（setTimeout 负倒计时检测）。
      */
     protected void startHook() {
-        final SharedPreferences sharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        Context ctx = getContext();
+        if (ctx == null) {
+            printLog("error: Context is null in startHook");
+            return;
+        }
+        final SharedPreferences sharedPreferences = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         printLog("timer_class: " + sharedPreferences.getString(PREF_TIMER_CLASS, ""), true);
         printLog("timer_alarm_type_property: " + sharedPreferences.getString(PREF_TIMER_ALARM_TYPE_PROPERTY, ""), true);
         printLog("timer_settimeout_method: " + sharedPreferences.getString(PREF_TIMER_SETTIMEOUT_METHOD, ""), true);
@@ -259,10 +277,12 @@ public class ReconnectManagerFix extends XposedModule {
                     }
                     final String maxFieldName = maxField.getName();
                     NEGATIVE_COUNTDOWN_SCHEDULER.schedule(() -> {
+                        Context ctx = getContext();
+                        if (ctx == null) return;
                         long nextConnectionTime = Reflect.getLongField(timer, maxFieldName);
                         if (nextConnectionTime != 0
                                 && nextConnectionTime - SystemClock.elapsedRealtime() < NEGATIVE_COUNTDOWN_THRESHOLD_MS) {
-                            context.sendBroadcast(new Intent("com.google.android.intent.action.GCM_RECONNECT"));
+                            ctx.sendBroadcast(new Intent("com.google.android.intent.action.GCM_RECONNECT"));
                             printLog("Send broadcast GCM_RECONNECT", true);
                         }
                     }, timeout + COUNTDOWN_CHECK_DELAY_MS, TimeUnit.MILLISECONDS);
@@ -377,6 +397,8 @@ public class ReconnectManagerFix extends XposedModule {
         reConnectButton.setText("RECONNECT");
         reConnectButton.setOnClickListener(view -> {
             context.sendBroadcast(new Intent("com.google.android.intent.action.GCM_RECONNECT"));
+            Context ctx = getContext();
+            if (ctx == null) return;
             printLog("Send broadcast GCM_RECONNECT", true);
         });
         linearLayout2.addView(reConnectButton);

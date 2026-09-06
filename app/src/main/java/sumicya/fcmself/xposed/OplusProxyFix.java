@@ -138,7 +138,12 @@ public class OplusProxyFix extends XposedModule {
             return -1;
         }
         try {
-            PackageManager pm = context.getPackageManager();
+            Context ctx = getContext();
+            if (ctx == null) {
+                printLog("error: Context is null");
+                return -1;
+            }
+            PackageManager pm = ctx.getPackageManager();
             return pm.getPackageUid(packageName, 0);
         } catch (PackageManager.NameNotFoundException e) {
             printLog("error: Package not found: " + packageName);
