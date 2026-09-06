@@ -4,10 +4,10 @@ import android.content.Intent;
 
 import java.lang.reflect.Method;
 
+import io.github.libxposed.api.XposedInterface;
+
 import sumicya.fcmself.util.Hooks;
 import sumicya.fcmself.util.Reflect;
-
-import io.github.libxposed.api.XposedInterface;
 
 /**
  * AutoStartFix - ColorOS / OxygenOS 自启动限制修复

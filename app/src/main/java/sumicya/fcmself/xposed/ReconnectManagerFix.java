@@ -15,8 +15,6 @@ import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
-import sumicya.fcmself.config.FcmselfConfig;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -25,10 +23,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import io.github.libxposed.api.XposedInterface;
+
+import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.util.Hooks;
 import sumicya.fcmself.util.Reflect;
-
-import io.github.libxposed.api.XposedInterface;
 
 /**
  * ReconnectManagerFix - GMS 长连接重连修复模块（运行在 com.google.android.gms 进程）
@@ -84,7 +83,7 @@ public class ReconnectManagerFix extends XposedModule {
     private static final String PREF_TIMER_ALARM_TYPE_PROPERTY = "timer_alarm_type_property";
 
     /** 配置结构版本号，变更 hook 点结构时递增以触发重新发现 */
-    public static final String configVersion = "v3";
+    public static final String CONFIG_VERSION = "v3";
 
     /** 低于该 GMS 版本 code 时不启用重连修复（旧版 GCM 架构不同） */
     private static final long MIN_GMS_VERSION_CODE = 213916046L;
@@ -96,8 +95,8 @@ public class ReconnectManagerFix extends XposedModule {
     /** 负倒计时判定阈值（ms） */
     private static final long NEGATIVE_COUNTDOWN_THRESHOLD_MS = -60000L;
 
-    private final Class<?> GcmChimeraService;
-    private String GcmChimeraServiceLogMethodName;
+    private final Class<?> gcmChimeraService;
+    private String gcmChimeraServiceLogMethodName;
     /**
      * 两次"配置可读"握手标志：
      * 构造时 Hook 的 onCreate 与 onCanReadConfig 各触发一次，
@@ -107,7 +106,7 @@ public class ReconnectManagerFix extends XposedModule {
 
     public ReconnectManagerFix(XposedInterface api, ClassLoader classLoader) {
         super(api, classLoader);
-        this.GcmChimeraService = Reflect.findClass("com.google.android.gms.gcm.GcmChimeraService", classLoader);
+        this.gcmChimeraService = Reflect.findClass("com.google.android.gms.gcm.GcmChimeraService", classLoader);
         this.addButton();
         this.startHookGcmServiceStart();
     }
@@ -129,15 +128,15 @@ public class ReconnectManagerFix extends XposedModule {
      */
     private void startHookGcmServiceStart() {
         try {
-            for (Method method : this.GcmChimeraService.getMethods()) {
+            for (Method method : this.gcmChimeraService.getMethods()) {
                 if (method.getParameterTypes().length == 2) {
                     if (method.getParameterTypes()[0] == String.class && method.getParameterTypes()[1] == Object[].class) {
-                        this.GcmChimeraServiceLogMethodName = method.getName();
+                        this.gcmChimeraServiceLogMethodName = method.getName();
                         break;
                     }
                 }
             }
-            Hooks.hookMethodAfter(api, this.GcmChimeraService, "onCreate", new Class<?>[0],
+            Hooks.hookMethodAfter(api, this.gcmChimeraService, "onCreate", new Class<?>[0],
                     (chain, error) -> {
                         registerLogReceiver();
                         if (startHookFlag) {
@@ -146,7 +145,7 @@ public class ReconnectManagerFix extends XposedModule {
                             startHookFlag = true;
                         }
                     });
-            Hooks.hookMethod(api, this.GcmChimeraService, "onDestroy", new Class<?>[0], chain -> {
+            Hooks.hookMethod(api, this.gcmChimeraService, "onDestroy", new Class<?>[0], chain -> {
                 try {
                     context.unregisterReceiver(logBroadcastReceive);
                 } catch (Throwable ignored) {
@@ -181,7 +180,7 @@ public class ReconnectManagerFix extends XposedModule {
             return;
         }
         if (!sharedPreferences.getBoolean(PREF_IS_INIT, false)
-                || !configVersion.equals(sharedPreferences.getString(PREF_CONFIG_VERSION, ""))) {
+                || !CONFIG_VERSION.equals(sharedPreferences.getString(PREF_CONFIG_VERSION, ""))) {
             printLog("fcmself_config init", true);
             initConfig(sharedPreferences, versionName, versionCode);
             printLog("正在更新hook位置", true);
@@ -213,7 +212,7 @@ public class ReconnectManagerFix extends XposedModule {
         editor.putBoolean(PREF_ENABLE, false);
         editor.putString(PREF_GMS_VERSION, versionName);
         editor.putLong(PREF_GMS_VERSION_CODE, versionCode);
-        editor.putString(PREF_CONFIG_VERSION, configVersion);
+        editor.putString(PREF_CONFIG_VERSION, CONFIG_VERSION);
         editor.putString(PREF_TIMER_CLASS, "");
         editor.putString(PREF_TIMER_SETTIMEOUT_METHOD, "");
         editor.putString(PREF_TIMER_ALARM_TYPE_PROPERTY, "");
@@ -275,7 +274,7 @@ public class ReconnectManagerFix extends XposedModule {
         public void onReceive(Context context, Intent intent) {
             if (FcmselfConfig.ACTION_LOG.equals(intent.getAction())) {
                 try {
-                    Reflect.callStaticMethod(GcmChimeraService, GcmChimeraServiceLogMethodName,
+                    Reflect.callStaticMethod(gcmChimeraService, gcmChimeraServiceLogMethodName,
                             new Class<?>[]{String.class, Object[].class}, "[fcmself] " + intent.getStringExtra("text"), null);
                 } catch (Throwable e) {
                     printLog("输出日志到fcm失败：" + intent.getStringExtra("text"));

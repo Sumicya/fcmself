@@ -69,17 +69,6 @@ public final class Reflect {
         }
     }
 
-    /** 按参数类型精确查找构造器。 */
-    public static Constructor<?> findConstructorExact(Class<?> clazz, Class<?>... parameterTypes) {
-        try {
-            Constructor<?> constructor = clazz.getDeclaredConstructor(parameterTypes);
-            constructor.setAccessible(true);
-            return constructor;
-        } catch (NoSuchMethodException e) {
-            throw new NoSuchMethodError(clazz.getName() + "#<init>");
-        }
-    }
-
     /** 按名字 + 参数个数查找；没有则返回 {@code null}。同名同参数个数的重载取最后一个。 */
     public static Method findMethodByParamCount(Class<?> clazz, String methodName, int parameterCount) {
         Method found = null;

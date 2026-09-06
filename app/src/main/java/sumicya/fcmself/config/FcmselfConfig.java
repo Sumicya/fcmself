@@ -36,7 +36,7 @@ public final class FcmselfConfig {
     /** 用户解锁（或已解锁）时由 {@code XposedModule} 调用，启动计时。 */
     public static void onUserUnlocked() {
         if ("android".equals(FcmselfLog.getSelfPackageName())) {
-            new Thread(() -> {
+            Thread bootTimer = new Thread(() -> {
                 try {
                     Thread.sleep(BOOT_COMPLETE_DELAY_MS);
                     isBootComplete = true;
@@ -44,7 +44,9 @@ public final class FcmselfConfig {
                 } catch (Throwable e) {
                     FcmselfLog.log(e.getMessage());
                 }
-            }).start();
+            }, "fcmself-boot-complete");
+            bootTimer.setDaemon(true);
+            bootTimer.start();
         } else {
             isBootComplete = true;
         }

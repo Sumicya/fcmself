@@ -11,15 +11,15 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.UserManager;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import io.github.libxposed.api.XposedInterface;
+
 import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.util.FcmselfLog;
 import sumicya.fcmself.util.Hooks;
 import sumicya.fcmself.util.Reflect;
-
-import io.github.libxposed.api.XposedInterface;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import static android.content.Context.NOTIFICATION_SERVICE;
 
@@ -31,8 +31,8 @@ import static android.content.Context.NOTIFICATION_SERVICE;
  *   <li>捕获本进程的 {@link Context}（Hook {@code ContextWrapper.attachBaseContext}），
  *       并在用户解锁后触发配置加载；</li>
  *   <li>维护模块实例列表，配置就绪后逐个回调 {@link #onCanReadConfig()}；</li>
- *   <li>提供各 Fix 模块共用的工具：日志（委托 {@link FcmselfLog}）、白名单/开关判断
- *       （委托 {@link FcmselfConfig}）、FCM Intent 识别、通知发送。</li>
+ *   <li>提供各 Fix 模块共用的工具：日志（委托 {@link FcmselfLog}）、FCM Intent 识别、
+ *       通知发送。</li>
  * </ul>
  *
  * <p>具体配置与启动时机逻辑见 {@link FcmselfConfig}。
@@ -187,7 +187,7 @@ public abstract class XposedModule {
         FcmselfLog.log(text);
     }
 
-    protected static void printLog(String text, Boolean isDiagnosticsLog) {
+    protected static void printLog(String text, boolean isDiagnosticsLog) {
         FcmselfLog.log(text, isDiagnosticsLog);
     }
 

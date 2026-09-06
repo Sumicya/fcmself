@@ -6,12 +6,12 @@ import android.os.Build;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 
+import io.github.libxposed.api.XposedInterface;
+
 import sumicya.fcmself.config.FcmselfConfig;
 import sumicya.fcmself.util.Hooks;
 import sumicya.fcmself.util.MethodArgs;
 import sumicya.fcmself.util.Reflect;
-
-import io.github.libxposed.api.XposedInterface;
 
 /**
  * BroadcastFix - 广播修复模块
@@ -23,9 +23,9 @@ import io.github.libxposed.api.XposedInterface;
  * 工作原理：
  * 1. Hook broadcastIntentLocked 方法（系统广播发送核心入口，API 29-35 各版本签名不同，
  *    自动定位 intent 与 appOp 参数下标）；
- * 2. 检测到 FCM Intent 且目标在白名单时，强制添加 FLAG_INCLUDE_STOPPED_PACKAGES
+ * 2. 检测到 FCM Intent 且目标包名可解析时，强制添加 FLAG_INCLUDE_STOPPED_PACKAGES
  *    并把 appOp 从 -1 改为 11（正常）；
- * 4. ColorOS：调用 OplusProxyFix.unfreeze 解除 OplusProxy 冻结。
+ * 3. ColorOS：调用 OplusProxyFix.unfreeze 解除 OplusProxy 冻结。
  */
 public class BroadcastFix extends XposedModule {
 
@@ -78,6 +78,7 @@ public class BroadcastFix extends XposedModule {
         }
 
         if (targetMethod != null && argsIndex != null
+                && argsIndex[0] >= 0 && argsIndex[1] >= 0
                 && argsIndex[0] < targetMethod.getParameters().length
                 && argsIndex[1] < targetMethod.getParameters().length
                 && targetMethod.getParameters()[argsIndex[0]].getType() == Intent.class
@@ -111,29 +112,17 @@ public class BroadcastFix extends XposedModule {
         } else if (Build.VERSION.SDK_INT == 33) {
             intentIndex = 3;
             appOpIndex = 12;
-        } else if (Build.VERSION.SDK_INT == 34) {
-            intentIndex = 3;
-            appOpIndex = MethodArgs.firstIntIndex(parameters, 12, 13);
-        } else if (Build.VERSION.SDK_INT >= 35) {
+        } else if (Build.VERSION.SDK_INT >= 34) {
             intentIndex = 3;
             appOpIndex = MethodArgs.firstIntIndex(parameters, 12, 13);
         }
 
-        if (intentIndex == 0 || appOpIndex == 0) {
-            // 根据参数名称查找，部分经过混淆的系统无效
-            intentIndex = 0;
-            appOpIndex = 0;
-            for (int i = 0; i < parameters.length; i++) {
-                if ("appOp".equals(parameters[i].getName()) && parameters[i].getType() == int.class) {
-                    appOpIndex = i;
-                }
-                if ("intent".equals(parameters[i].getName()) && parameters[i].getType() == Intent.class) {
-                    intentIndex = i;
-                }
-            }
+        // 版本硬编码失败（未知版本 / 候选下标不是 int）时按参数名兜底；
+        // Android framework 通常不保留参数名，兜底路径在多数设备上会返回 null
+        if (intentIndex <= 0 || appOpIndex <= 0) {
+            return MethodArgs.byName(parameters, Intent.class);
         }
-
-        return (intentIndex == 0 || appOpIndex == 0) ? null : new int[]{intentIndex, appOpIndex};
+        return new int[]{intentIndex, appOpIndex};
     }
 
     /**
