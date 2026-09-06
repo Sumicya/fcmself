@@ -203,10 +203,44 @@ Android 16（API 36）、LSPosed 2.2.0，验证时间 2026-09-06。
 | 通知保持 Hook 安装 | 已验证 | `cancelAllNotificationsInt hook 参数：pkg@2 reason@7（API 36）` |
 | ColorOS 代理绕过与解冻 | 已验证 | `shouldProxy bypass`、`unfreezeIfNeed using 4 params: uid=10323` |
 | Hans 三个"整方法替换" | 已验证 | `registerGmsRestrictObserver hooked` / `updateGmsRestrict hooked` / `isGoogleRestricInfoOn hooked` |
-| 端到端投递（核心功能） | 已验证 | 应用划掉后台后仍收到群消息，同时有 `Add FLAG_INCLUDE_STOPPED_PACKAGES: <包名>` |
+| 核心功能：应用被停止时仍能收到推送 | **未验证，且有反例** | Hook 确实命中（`Add FLAG_INCLUDE_STOPPED_PACKAGES` 与 `unfreeze` 都打了），但 2026-09-06 的实测里通知最终没有到达。按第 10 节分段定位 |
 | 60 秒日志节流 | 已验证 | `（期间另有 N 条同类日志已抑制）` |
 | 多应用生效（无白名单） | 已验证 | 同一份日志里 `fork.risin42.nagramx` 与 `com.roblox.client` 都被处理 |
 | `KeepNotification` 的实际拦截效果 | **未验证** | 拦下取消请求时不打日志，无法直接观测 |
 | `AutoStartFix` 的实际放行效果 | **未验证** | 成功时不打日志，只能由"没有 `No Such Method ...OplusAppStartupManager` 这行"推断 Hook 已装上 |
 | `ReconnectManagerFix` 的负倒计时重连 | **未验证** | 只确认 Hook 已装上（`timer_class` 等三行）。想验：FCM Diagnostics 里点 `RECONNECT`，期望 `Send broadcast GCM_RECONNECT` |
 | release（R8）产物 | **未验证** | 真机一直装的是 debug-signed；release 只过了 CI 的入口类检查 |
+
+## 10. 核心功能没生效时怎么定位
+
+一条推送要走完三段，日志能分别证明每一段：
+
+| 段 | 证据 | 没有这个证据说明 |
+| --- | --- | --- |
+| ① 服务器 → FCM → GMS | `shouldProxy bypass: pkg=<包名>, ..., action=com.google.android.c2dm.intent.RECEIVE` | 推送根本没到 GMS：应用的 FCM token 失效、或网络/代理问题，与本模块无关 |
+| ② GMS → 应用（广播投递） | `Add FLAG_INCLUDE_STOPPED_PACKAGES: <包名>` + `unfreeze: <包名>, uid=...` | 模块没介入：要么不在 `Boot Complete` 之后，要么这条广播本来就带了 flag（此时模块不需要介入） |
+| ③ 应用 → 通知栏 | 通知真的弹出来 | 广播投进去了但应用没起来 / 起来就被杀 / 通知被系统拦下 —— 这一段本模块管不到 |
+
+②有日志、③没结果时，按顺序查这三件事：
+
+```bash
+# a. 应用当时是不是真的处于 stopped 状态（stopped=true 才需要本模块补 flag）
+su -c "dumpsys package <包名> | grep -iE 'stopped|enabled='"
+```
+
+```bash
+# b. 推送到达后应用进程有没有起来（推完立刻执行）
+su -c "ps -A | grep <包名>"
+```
+
+```bash
+# c. 通知有没有被 post 出来（post 了但没显示 = 通知权限/渠道问题，不是投递问题）
+su -c "dumpsys notification --noredact | grep -i <包名>"
+```
+
+想看系统有没有拒绝投递，抓一段完整 logcat（不只 FcmSelf）再筛：
+
+```bash
+su -c "logcat -c"; # 清空后推一条消息，等 10 秒
+su -c "logcat -d | grep -iE '<包名>|c2dm|Background execution|not delivering|stopped'"
+```
