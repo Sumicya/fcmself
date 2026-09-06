@@ -1,18 +1,50 @@
-# Android / Gradle
-*.iml
-.gradle/
-/local.properties
-.idea/
-.DS_Store
-/build/
-/captures/
-.externalNativeBuild/
-.cxx/
+```
+# Compiled and binary files
+*.class
+*.o
+*.obj
+*.out
 
-# 构建产物不入库（APK / 压缩包由 CI 构建并通过 Release 分发）
-*.apk
-*.ap_
-*.aab
+# Dependencies
+.libs/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Editors
+.idea/
+
+# Coverage reports
+coverage/
+htmlcov/
+*.coverage
+
+# MyPy cache
+.mypy_cache/
+
+# Pytest cache
+.pytest_cache/
+
+# Gradle
+.gradle/
+
+# Target/build directories
+target/
+build/
+
+# Distribution files
+dist/
+
+# Virtual environments
+.venv/
+venv/
+__pycache__/
+
+# Node modules
+node_modules/
+
+# Compressed files
 *.zip
 *.gz
 *.tar
@@ -23,6 +55,7 @@
 *.rar
 *.zst
 *.lz4
+*.lzh
 *.cab
 *.arj
 *.rpm
@@ -34,3 +67,11 @@
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+# System files
+.DS_Store
+Thumbs.db
+.env
+.env.local
+*.env.*
+```

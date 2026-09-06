@@ -18,6 +18,7 @@ import sumicya.fcmself.util.Reflect;
 
 import io.github.libxposed.api.XposedInterface;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,8 +40,27 @@ import static android.content.Context.NOTIFICATION_SERVICE;
  */
 public abstract class XposedModule {
 
+    /**
+     * 使用 {@link WeakReference} 持有 Context，避免内存泄漏。
+     * <p>注意：从弱引用获取 Context 后应尽快使用，不要长期持有强引用。
+     */
     @SuppressLint("StaticFieldLeak")
-    protected static Context context = null;
+    private static WeakReference<Context> contextRef = null;
+    
+    /**
+     * 获取 Context 实例。
+     * <p>如果弱引用已被回收，返回 null（调用方需自行判空处理）。
+     */
+    public static Context getContext() {
+        return contextRef != null ? contextRef.get() : null;
+    }
+    
+    /**
+     * 设置 Context 引用（内部使用）。
+     */
+    private static void setContext(Context context) {
+        contextRef = new WeakReference<>(context);
+    }
 
     /** 模块自身通知的渠道 id */
     private static final String NOTIFICATION_CHANNEL = "fcmself";
@@ -61,7 +81,7 @@ public abstract class XposedModule {
             instances.add(this);
             if (instances.size() == 1) {
                 initContext(api, classLoader);
-            } else if (context != null && isUserUnlocked()) {
+            } else if (getContext() != null && isUserUnlocked()) {
                 safeOnCanReadConfig(this);
             }
         }
@@ -72,12 +92,16 @@ public abstract class XposedModule {
     // ------------------------------------------------------------------
 
     public static Context getContext() {
-        return context;
+        return contextRef != null ? contextRef.get() : null;
     }
 
     private static boolean isUserUnlocked() {
+        Context ctx = getContext();
+        if (ctx == null) {
+            return false;
+        }
         try {
-            return context.getSystemService(UserManager.class).isUserUnlocked();
+            return ctx.getSystemService(UserManager.class).isUserUnlocked();
         } catch (Throwable e) {
             return false;
         }
@@ -87,13 +111,14 @@ public abstract class XposedModule {
         Class<?> contextWrapper = Reflect.findClass("android.content.ContextWrapper", classLoader);
         Hooks.hookMethodAfter(api, contextWrapper, "attachBaseContext", new Class<?>[]{Context.class},
                 (chain, error) -> {
-                    if (context == null) {
-                        context = (Context) chain.getThisObject();
+                    if (contextRef == null || contextRef.get() == null) {
+                        Context newContext = (Context) chain.getThisObject();
+                        setContext(newContext);
                         if (isUserUnlocked()) {
                             callAllOnCanReadConfig();
                         } else {
                             IntentFilter filter = new IntentFilter(Intent.ACTION_USER_UNLOCKED);
-                            context.registerReceiver(unlockBroadcastReceive, filter);
+                            newContext.registerReceiver(unlockBroadcastReceive, filter);
                         }
                     }
                 });
@@ -103,11 +128,14 @@ public abstract class XposedModule {
         @Override
         public void onReceive(Context _context, Intent intent) {
             if (Intent.ACTION_USER_UNLOCKED.equals(intent.getAction())) {
-                try {
-                    context.unregisterReceiver(unlockBroadcastReceive);
-                } catch (Throwable ignored) {
+                Context ctx = getContext();
+                if (ctx != null) {
+                    try {
+                        ctx.unregisterReceiver(unlockBroadcastReceive);
+                    } catch (Throwable ignored) {
+                    }
+                    callAllOnCanReadConfig();
                 }
-                callAllOnCanReadConfig();
             }
         }
     };
@@ -161,17 +189,22 @@ public abstract class XposedModule {
     };
 
     private static synchronized void initReceiver() {
-        if (!isInitReceiver && context != null) {
+        Context ctx = getContext();
+        if (!isInitReceiver && ctx != null) {
             isInitReceiver = true;
 
             IntentFilter unInstallIntentFilter = new IntentFilter(Intent.ACTION_PACKAGE_REMOVED);
             unInstallIntentFilter.addDataScheme("package");
-            context.registerReceiver(uninstallReceiver, unInstallIntentFilter);
+            ctx.registerReceiver(uninstallReceiver, unInstallIntentFilter);
         }
     }
 
     private static void onUninstallSelf() {
-        NotificationManager notificationManager = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
+        Context ctx = getContext();
+        if (ctx == null) {
+            return;
+        }
+        NotificationManager notificationManager = (NotificationManager) ctx.getSystemService(NOTIFICATION_SERVICE);
         NotificationChannel channel = notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL);
         if (channel != null) {
             notificationManager.deleteNotificationChannel(channel.getId());
@@ -214,10 +247,14 @@ public abstract class XposedModule {
     // 权限由宿主自己持有——本模块声明 POST_NOTIFICATIONS 不起作用，故一并抑制这两条 lint
     @SuppressLint({"MissingPermission", "NotificationPermission"})
     protected void sendNotification(String title, String content) {
+        Context ctx = getContext();
+        if (ctx == null) {
+            return;
+        }
         printLog(title, false);
-        NotificationManager notificationManager = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
+        NotificationManager notificationManager = (NotificationManager) ctx.getSystemService(NOTIFICATION_SERVICE);
         createNotificationChannel(notificationManager);
-        Notification notification = new Notification.Builder(context, NOTIFICATION_CHANNEL)
+        Notification notification = new Notification.Builder(ctx, NOTIFICATION_CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle("[fcmself]" + title)
                 .setContentText(content)
