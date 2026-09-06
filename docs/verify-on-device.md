@@ -69,6 +69,13 @@ adb logcat -s FcmSelf
 出现这行且通知正常弹出 = 核心功能生效。（这行是给正在发送的那条广播补上
 `FLAG_INCLUDE_STOPPED_PACKAGES`，不是额外发一条广播。）
 
+> **冻结 ≠ 停止，两种状态走的是不同代码**：ColorOS 上从最近任务划掉，通常只是把进程
+> **冻结**（`ps -A | grep <包名>` 能看到 `do_freezer_trap`，
+> `dumpsys package <包名> | grep stopped=` 显示 `stopped=false`）。这种状态下广播本来就
+> 能投递，起作用的是 ColorOS 冻结/代理绕过那部分（`shouldProxy bypass` / `unfreeze`）。
+> 只有 `am force-stop`（或系统真的把进程杀掉）之后 `stopped=true`，才需要
+> `FLAG_INCLUDE_STOPPED_PACKAGES`，也才是本节要验的路径。
+
 **必须没有的一行**（出现说明核心 Hook 点没找到，模块整体不工作）：
 
 ```
@@ -203,7 +210,8 @@ Android 16（API 36）、LSPosed 2.2.0，验证时间 2026-09-06。
 | 通知保持 Hook 安装 | 已验证 | `cancelAllNotificationsInt hook 参数：pkg@2 reason@7（API 36）` |
 | ColorOS 代理绕过与解冻 | 已验证 | `shouldProxy bypass`、`unfreezeIfNeed using 4 params: uid=10323` |
 | Hans 三个"整方法替换" | 已验证 | `registerGmsRestrictObserver hooked` / `updateGmsRestrict hooked` / `isGoogleRestricInfoOn hooked` |
-| 核心功能：应用被停止时仍能收到推送 | **未验证，且有反例** | Hook 确实命中（`Add FLAG_INCLUDE_STOPPED_PACKAGES` 与 `unfreeze` 都打了），但 2026-09-06 的实测里通知最终没有到达。按第 10 节分段定位 |
+| 划掉后台（进程被**冻结**）后收到推送 | 能收到，但**未做归因** | 2026-09-06 实测：通知栏里有 9 条 `fork.risin42.nagramx` 通知（含当天消息），进程处于 `do_freezer_trap`、`stopped=false`。没有"停用模块 → 重启 → 同样操作"的对照组，所以不能证明是模块起的作用 |
+| 核心功能：应用被真正**停止**（`stopped=true`）时收到推送 | **未验证** | 需要先 `am force-stop` 再推送。这才是 `FLAG_INCLUDE_STOPPED_PACKAGES` 那部分代码针对的场景；划掉后台不会进入该状态 |
 | 60 秒日志节流 | 已验证 | `（期间另有 N 条同类日志已抑制）` |
 | 多应用生效（无白名单） | 已验证 | 同一份日志里 `fork.risin42.nagramx` 与 `com.roblox.client` 都被处理 |
 | `KeepNotification` 的实际拦截效果 | **未验证** | 拦下取消请求时不打日志，无法直接观测 |
