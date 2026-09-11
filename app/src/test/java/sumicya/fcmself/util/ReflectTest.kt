@@ -87,7 +87,8 @@ class ReflectTest {
     @Test
     fun findConstructorMostMatch_returnsConstructorWithMostMatchedPrefix() {
         val constructor: Constructor<*> = Reflect.findConstructorMostMatch(
-            Sample::class.java, String::class.java, Int::class.javaPrimitiveType, Long::class.javaPrimitiveType)
+            Sample::class.java, String::class.java,
+            Int::class.javaPrimitiveType!!, Long::class.javaPrimitiveType!!)
         assertEquals(3, constructor.parameterTypes.size)
     }
 

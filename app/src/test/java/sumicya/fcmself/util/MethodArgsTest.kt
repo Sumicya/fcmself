@@ -9,6 +9,12 @@ import org.junit.Test
 import java.lang.reflect.Method
 import java.lang.reflect.Parameter
 
+// javaPrimitiveType 对原始类型返回非空 Class，但签名上可空；这里统一收窄为非空的 Class<*>
+private val INT_TYPE: Class<*> = Int::class.javaPrimitiveType!!
+private val LONG_TYPE: Class<*> = Long::class.javaPrimitiveType!!
+private val BOOLEAN_TYPE: Class<*> = Boolean::class.javaPrimitiveType!!
+private val STRING_TYPE: Class<*> = String::class.java
+
 /**
  * [MethodArgs] 的单元测试。
  *
@@ -21,10 +27,8 @@ class MethodArgsTest {
 
     /** 模拟 Android 15/16 的 cancelAllNotificationsInt：pkg@2(String) / reason@7(int)。 */
     private fun notificationSignature(): Array<Class<*>> = arrayOf(
-        Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, String::class.java,
-        Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType,
-        Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
-        Int::class.javaPrimitiveType
+        INT_TYPE, INT_TYPE, STRING_TYPE, INT_TYPE, BOOLEAN_TYPE,
+        INT_TYPE, INT_TYPE, INT_TYPE, INT_TYPE
     )
 
     @Test
@@ -35,7 +39,7 @@ class MethodArgsTest {
     @Test
     fun matches_rejectsWhenReasonSlotIsNotInt() {
         val types = notificationSignature()
-        types[7] = String::class.java
+        types[7] = STRING_TYPE
         assertFalse(MethodArgs.matches(types, 2, 7))
     }
 
@@ -48,7 +52,7 @@ class MethodArgsTest {
 
     @Test
     fun matches_rejectsWhenIndexIsOutOfRange() {
-        val types = arrayOf<Class<*>>(Int::class.javaPrimitiveType, String::class.java)
+        val types = arrayOf<Class<*>>(INT_TYPE, STRING_TYPE)
         assertFalse(MethodArgs.matches(types, 2, 1))
         assertFalse(MethodArgs.matches(types, 1, 5))
     }
@@ -64,20 +68,18 @@ class MethodArgsTest {
 
     @Test
     fun matches_acceptsIntentAndAppOpPair() {
-        val types = arrayOfNulls<Class<*>>(20)
-        for (i in types.indices) types[i] = Any::class.java
+        val types = Array<Class<*>>(20) { Any::class.java }
         types[3] = FakeIntent::class.java
-        types[13] = Int::class.javaPrimitiveType
+        types[13] = INT_TYPE
         assertTrue(MethodArgs.matches(types, 3, FakeIntent::class.java, 13))
     }
 
     @Test
     fun matches_rejectsWhenAppOpSlotIsNotInt() {
         // 这正是原先只检查"第 13 个参数是 int"时可能漏掉的情况：签名一变就命中错误的参数
-        val types = arrayOfNulls<Class<*>>(20)
-        for (i in types.indices) types[i] = Any::class.java
+        val types = Array<Class<*>>(20) { Any::class.java }
         types[3] = FakeIntent::class.java
-        types[13] = Long::class.javaPrimitiveType
+        types[13] = LONG_TYPE
         assertFalse(MethodArgs.matches(types, 3, FakeIntent::class.java, 13))
     }
 
