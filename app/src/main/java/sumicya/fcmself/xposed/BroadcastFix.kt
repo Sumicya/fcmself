@@ -94,7 +94,7 @@ class BroadcastFix(api: XposedInterface, classLoader: ClassLoader) : XposedModul
                     OplusProxyFix.unfreeze(target!!)
                 }
             }
-            chain.proceed(*args)
+            chain.proceed(args)
         }
     }
 
