@@ -38,7 +38,7 @@ object FcmselfConfig {
                     isBootComplete = true
                     FcmselfLog.log("Boot Complete")
                 } catch (e: Throwable) {
-                    FcmselfLog.log(e.message)
+                    FcmselfLog.log(e.message ?: "null")
                 }
             }, "fcmself-boot-complete")
             bootTimer.isDaemon = true

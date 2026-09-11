@@ -209,7 +209,8 @@ object Reflect {
     fun callStaticMethod(clazz: Class<*>, methodName: String, vararg args: Any?): Any? {
         var declaredParamTypes: Array<Class<*>>? = null
         var invokeArgs: Array<out Any?> = args
-        if (args.isNotEmpty() && args[0] is Array<Class<*>>) {
+        if (args.isNotEmpty() && args[0] is Array<*> && (args[0] as Array<*>).isArrayOf<Class<*>>()) {
+            @Suppress("UNCHECKED_CAST")
             declaredParamTypes = args[0] as Array<Class<*>>
             invokeArgs = args.copyOfRange(1, args.size)
         }
