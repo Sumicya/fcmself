@@ -160,6 +160,24 @@ public final class Reflect {
         }
     }
 
+    /** 写实例字段（沿继承链向上找）；找不到抛 {@link NoSuchFieldError}。 */
+    public static void setObjectField(Object obj, String fieldName, Object value) {
+        try {
+            findField(obj.getClass(), fieldName).set(obj, value);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /** 写静态字段；找不到抛 {@link NoSuchFieldError}。 */
+    public static void setStaticObjectField(Class<?> clazz, String fieldName, Object value) {
+        try {
+            findField(clazz, fieldName).set(null, value);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /** 按 {@code a.b.c} 形式逐层读字段；任何一层失败都抛 {@link NoSuchFieldError}。 */
     public static Object getObjectFieldByPath(Object obj, String pathFieldName) {
         Object current = obj;

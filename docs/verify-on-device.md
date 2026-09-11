@@ -95,9 +95,11 @@ No Such Method com.android.server.am.OplusAppStartupManager.shouldPreventSendRec
 出现这行 = 这台设备没有该 Hook 点（非 ColorOS/OxygenOS，或版本不同），**属正常**，
 其它模块不受影响；没有这行且第 2 节的通知能正常弹出，即视为生效。
 
-MIUI / HyperOS 的自启动 Hook 点已按需求移除（对应日志
-`Allow Auto Start` / `checkApplicationAutoStart` / `SmartPowerService.shouldInterceptBroadcast`
-不会再出现），小米设备目前不在支持范围内。
+MIUI / HyperOS 的自启动 Hook 点已恢复支持。对应日志：
+`Allow Auto Start`（MIUI 12/13）、`checkApplicationAutoStart` / `checkReceiverIfRestricted`
+（HyperOS）、`AutoStartManagerServiceStubImpl.isAllowStartService`、
+`SmartPowerService.shouldInterceptBroadcast`、`Disable MIUI Intercept`。
+小米设备上未出现失败行（`No Such ...`）且第 2 节通知正常弹出，即视为生效。
 
 ## 4. 通知不被自动清理
 
@@ -124,35 +126,28 @@ unfreeze: <包名>, uid=...
 
 ## 6. GMS 重连修复（需勾选 `com.google.android.gms`）
 
-打开 FCM Diagnostics 页面（模块会往里注入 `RECONNECT` 按钮）：
+本模块**不再注入 RECONNECT 按钮、不发通知、不写配置文件**：hook 点每次 GMS 进程启动时在
+内存中自动发现。
 
-```bash
-adb shell am start -a android.intent.action.VIEW \
-  -n com.google.android.gms/com.google.android.gms.gcm.GcmDiagnostics
-```
-
-首次运行的正常流程：
+正常流程（每次 GMS 进程启动都会重新发现）：
 
 ```
-fcmself_config init
-正在更新hook位置
-更新hook位置成功
+重连修复 hook 点已定位
+timer_class: ...
+timer_alarm_type_property: ...
+timer_settimeout_method: ...
 ```
-
-并发一条"自动更新配置文件成功"通知。之后重启 GMS 进程会直接按缓存 Hook。
 
 其它可能看到的：
 
-| 日志 / 通知 | 含义 |
+| 日志 | 含义 |
 | --- | --- |
-| `自动寻找hook点失败...` + 通知"自动更新配置文件失败" | 该 GMS 版本找不到 Hook 点，重连修复自动禁用，其它功能不受影响 |
-| `当前为旧版GMS，请使用0.4.1版本FCMSELF，禁用重连修复功能` | GMS 版本低于 `MIN_GMS_VERSION_CODE`，重连修复不启用 |
-| `当前配置文件enable标识为false，FCMSELF退出` | 上次自动发现失败留下的状态；清掉 GMS 的 `fcmself_config` 或等 GMS 更新后会重新发现 |
-| `gms已更新: ...` + `正在更新hook位置` | GMS 升级后自动重新发现 Hook 点（预期行为） |
-| `Send broadcast GCM_RECONNECT` | 点了 RECONNECT 按钮，或检测到倒计时出现异常负值后主动重连 |
+| `自动寻找hook点失败...` | 该 GMS 版本找不到 Hook 点，重连修复自动禁用，其它功能不受影响 |
+| `当前为旧版GMS，重连修复不启用` | GMS 版本低于 `MIN_GMS_VERSION_CODE`，重连修复不启用 |
+| `Send broadcast GCM_RECONNECT` | 检测到心跳/重连倒计时出现异常负值后主动重连 |
 
-页面里还能看到以 `[fcmself] [com.google.android.gms]` 开头的行，那是本模块转发到 GMS 日志的
-诊断信息。
+在 FCM Diagnostics 页面里还能看到以 `[fcmself] [com.google.android.gms]` 开头的行，
+那是本模块转发到 GMS 日志的诊断信息。
 
 ## 6.1 不重启也能验证的部分
 
@@ -190,7 +185,7 @@ broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@N a
 ## 7. 出问题时怎么排除
 
 1. LSPosed 里停用模块 → 重启 → 现象还在 = 与本模块无关（ROM 或 GMS 本身）
-2. 卸载模块后，模块会发一条 `Fcmself已卸载，重启后停止生效。` 通知，重启后彻底停用
+2. 卸载模块后，模块会写一条 `Fcmself已卸载，重启后停止生效。` 日志，重启后彻底停用
 3. 需要回滚代码时，本分支每个 commit 都是独立可回退的（`git log --oneline`）
 
 ## 8. 反馈问题时请附上
@@ -217,7 +212,7 @@ Android 16（API 36）、LSPosed 2.2.0，验证时间 2026-09-06。
 | 多应用生效（无白名单） | 已验证 | 同一份日志里 `fork.risin42.nagramx` 与 `com.roblox.client` 都被处理 |
 | `KeepNotification` 的实际拦截效果 | **未验证** | 拦下取消请求时不打日志，无法直接观测 |
 | `AutoStartFix` 的实际放行效果 | **未验证** | 成功时不打日志，只能由"没有 `No Such Method ...OplusAppStartupManager` 这行"推断 Hook 已装上 |
-| `ReconnectManagerFix` 的负倒计时重连 | **未验证** | 只确认 Hook 已装上（`timer_class` 等三行）。想验：FCM Diagnostics 里点 `RECONNECT`，期望 `Send broadcast GCM_RECONNECT` |
+| `ReconnectManagerFix` 的负倒计时重连 | **未验证** | 只确认 Hook 已装上（`timer_class` 等三行）。想验：制造心跳/重连倒计时异常，期望 `Send broadcast GCM_RECONNECT` |
 | release（R8）产物 | **未验证** | 真机一直装的是 debug-signed；release 只过了 CI 的入口类检查 |
 
 ## 10. 核心功能没生效时怎么定位

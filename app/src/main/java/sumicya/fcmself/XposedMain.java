@@ -13,7 +13,9 @@ import sumicya.fcmself.util.FcmselfLog;
 import sumicya.fcmself.xposed.AutoStartFix;
 import sumicya.fcmself.xposed.BroadcastFix;
 import sumicya.fcmself.xposed.KeepNotification;
+import sumicya.fcmself.xposed.MiuiLocalNotificationFix;
 import sumicya.fcmself.xposed.OplusProxyFix;
+import sumicya.fcmself.xposed.PowerkeeperFix;
 import sumicya.fcmself.xposed.ReconnectManagerFix;
 import sumicya.fcmself.xposed.XposedModule;
 
@@ -54,7 +56,9 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
             new ModuleEntry("BroadcastFix", BroadcastFix::new),
             new ModuleEntry("AutoStartFix", AutoStartFix::new),
             new ModuleEntry("KeepNotification", KeepNotification::new),
-            new ModuleEntry("OplusProxyFix", OplusProxyFix::new));
+            new ModuleEntry("MiuiLocalNotificationFix", MiuiLocalNotificationFix::new),
+            new ModuleEntry("OplusProxyFix", OplusProxyFix::new),
+            new ModuleEntry("PowerkeeperFix", PowerkeeperFix::new));
 
     /** 目标进程包名 -> 该进程内安装的模块。 */
     private static final Map<String, List<ModuleEntry>> PACKAGE_MODULES = new HashMap<>();

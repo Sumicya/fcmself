@@ -2,16 +2,18 @@
 
 [![Android CI](https://github.com/Sumicya/fcmself/workflows/Android%20CI/badge.svg)](https://github.com/Sumicya/fcmself/actions)
 
-一个基于 LSPosed 的 FCM/GCM 推送通知修复模块，针对国内定制 ROM 优化。纯 Hook：没有界面、没有白名单、没有任何配置项——装上、勾选作用域、重启，即可对全部 FCM 目标应用生效。
+一个基于 LSPosed 的 FCM/GCM 推送通知修复模块，针对国内定制 ROM 优化。纯 Hook：没有界面、没有白名单、没有任何配置项、**不写任何配置文件**——装上、勾选作用域、重启，即可对全部 FCM 目标应用生效。
 
 ## 功能
 
 - **唤醒未启动的应用**：收到 FCM 消息时自动唤醒目标应用，解决 `Failed to broadcast to stopped app`
 - **阻止通知自动清除**：防止系统因应用停止而清掉其通知
 - **解除自启动限制**：绕过厂商对应用自启动的限制
-- **GMS 重连修复**：心跳/重连倒计时异常时主动重连，并在 FCM Diagnostics 注入 RECONNECT 按钮
+- **解除厂商后台/电源限制**：绕过 MIUI PowerKeeper 对 GMS 的管控
+- **GMS 重连修复**：心跳/重连倒计时异常时主动重连
 
-> 厂商特定修复目前只覆盖 OPPO / OnePlus（ColorOS / OxygenOS 的 `Oplus*` 与 Hans 后台限制）。
+> 厂商特定修复覆盖 OPPO / OnePlus（ColorOS / OxygenOS 的 `Oplus*` 与 Hans 后台限制）
+> 与小米（MIUI / HyperOS 的 `BroadcastQueue*` 自启动拦截、`SmartPowerService`、PowerKeeper、本地通知限制）。
 
 ## 要求
 

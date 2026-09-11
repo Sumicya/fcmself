@@ -1,7 +1,6 @@
 package sumicya.fcmself.xposed;
 
 import android.annotation.SuppressLint;
-import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
@@ -31,8 +30,7 @@ import static android.content.Context.NOTIFICATION_SERVICE;
  *   <li>捕获本进程的 {@link Context}（Hook {@code ContextWrapper.attachBaseContext}），
  *       并在用户解锁后触发配置加载；</li>
  *   <li>维护模块实例列表，配置就绪后逐个回调 {@link #onCanReadConfig()}；</li>
- *   <li>提供各 Fix 模块共用的工具：日志（委托 {@link FcmselfLog}）、FCM Intent 识别、
- *       通知发送。</li>
+ *   <li>提供各 Fix 模块共用的工具：日志（委托 {@link FcmselfLog}）、FCM Intent 识别。</li>
  * </ul>
  *
  * <p>具体配置与启动时机逻辑见 {@link FcmselfConfig}。
@@ -42,7 +40,7 @@ public abstract class XposedModule {
     @SuppressLint("StaticFieldLeak")
     protected static Context context = null;
 
-    /** 模块自身通知的渠道 id */
+    /** 旧版本模块通知渠道 id，仅用于卸载时清理历史残留 */
     private static final String NOTIFICATION_CHANNEL = "fcmself";
 
     /** 本进程内已创建的模块实例（构造顺序即安装顺序） */
@@ -198,40 +196,6 @@ public abstract class XposedModule {
      */
     protected boolean hasTargetPackage(String packageName) {
         return packageName != null && !packageName.isEmpty();
-    }
-
-    protected void sendNotification(String title) {
-        sendNotification(title, null);
-    }
-
-    /**
-     * 发一条模块自身的通知（Hook 失败提示、重连诊断等）。
-     *
-     * <p>直接用框架 {@link Notification.Builder}（渠道构造器需 API 26，本模块 minSdk 29），
-     * 不为一个通知把整个 androidx.core 打进 APK。模块没有界面，通知不带点击意图。
-     */
-    // 通知是从被 Hook 的宿主进程（system_server / GMS）的 context 发的，归属宿主 UID，
-    // 权限由宿主自己持有——本模块声明 POST_NOTIFICATIONS 不起作用，故一并抑制这两条 lint
-    @SuppressLint({"MissingPermission", "NotificationPermission"})
-    protected void sendNotification(String title, String content) {
-        printLog(title, false);
-        NotificationManager notificationManager = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
-        createNotificationChannel(notificationManager);
-        Notification notification = new Notification.Builder(context, NOTIFICATION_CHANNEL)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("[fcmself]" + title)
-                .setContentText(content)
-                .build();
-        notificationManager.notify((int) System.currentTimeMillis(), notification);
-    }
-
-    private void createNotificationChannel(NotificationManager notificationManager) {
-        if (notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL) == null) {
-            NotificationChannel channel = new NotificationChannel(
-                    NOTIFICATION_CHANNEL, "fcmself", NotificationManager.IMPORTANCE_HIGH);
-            channel.setDescription("[xposed] fcmself");
-            notificationManager.createNotificationChannel(channel);
-        }
     }
 
     /**
