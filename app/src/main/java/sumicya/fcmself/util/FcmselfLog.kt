@@ -1,6 +1,5 @@
 package sumicya.fcmself.util
 
-import android.content.Context
 import android.content.Intent
 import android.util.Log
 
@@ -25,21 +24,17 @@ object FcmselfLog {
 
     /** 当前模块运行的进程身份（system_server 为 "android"，否则为包名） */
     @Volatile
-    private var selfPackageName = "UNKNOWN"
+    @JvmStatic
+    var selfPackageName = "UNKNOWN"
 
     /** 框架接口实例，用于把日志同时写进 LSPosed 日志；入口初始化前为 null */
     @Volatile
-    private var xposed: XposedInterface? = null
-
-    @JvmStatic
-    fun setSelfPackageName(packageName: String) {
-        selfPackageName = packageName
-    }
+    private var xposedApi: XposedInterface? = null
 
     /** 由模块入口注入框架接口，之后每条日志都会同步写入 LSPosed 框架日志。 */
     @JvmStatic
     fun setXposed(xposedInterface: XposedInterface) {
-        xposed = xposedInterface
+        xposedApi = xposedInterface
     }
 
     /**
@@ -47,16 +42,13 @@ object FcmselfLog {
      * （priority 取 android.util.Log 的常量），没有单参数的 log(String)。
      */
     private fun logToFramework(line: String) {
-        val instance = xposed ?: return
+        val instance = xposedApi ?: return
         try {
             instance.log(Log.INFO, TAG, line)
         } catch (ignored: Throwable) {
             // 框架日志不可用时忽略，logcat 里已经有一份
         }
     }
-
-    @JvmStatic
-    fun getSelfPackageName(): String = selfPackageName
 
     @JvmStatic
     fun log(text: String) = log(text, false)
@@ -69,7 +61,7 @@ object FcmselfLog {
             val logIntent = Intent(FcmselfConfig.ACTION_LOG)
             logIntent.putExtra("text", line)
             try {
-                val context = XposedModule.getContext()
+                val context = XposedModule.context
                 if (context != null) {
                     context.sendBroadcast(logIntent)
                 } else {

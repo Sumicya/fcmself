@@ -22,20 +22,20 @@ object FcmselfConfig {
     private const val BOOT_COMPLETE_DELAY_MS = 60000L
 
     @Volatile
-    private var isBootComplete = false
+    private var bootComplete = false
 
     /** 系统是否已完成启动。未就绪前广播/通知类 Hook 一律不介入。 */
     @JvmStatic
-    fun isBootComplete(): Boolean = isBootComplete
+    fun isBootComplete(): Boolean = bootComplete
 
     /** 用户解锁（或已解锁）时由 XposedModule 调用，启动计时。 */
     @JvmStatic
     fun onUserUnlocked() {
-        if ("android" == FcmselfLog.getSelfPackageName()) {
+        if ("android" == FcmselfLog.selfPackageName) {
             val bootTimer = Thread({
                 try {
                     Thread.sleep(BOOT_COMPLETE_DELAY_MS)
-                    isBootComplete = true
+                    bootComplete = true
                     FcmselfLog.log("Boot Complete")
                 } catch (e: Throwable) {
                     FcmselfLog.log(e.message ?: "null")
@@ -44,7 +44,7 @@ object FcmselfConfig {
             bootTimer.isDaemon = true
             bootTimer.start()
         } else {
-            isBootComplete = true
+            bootComplete = true
         }
     }
 }
