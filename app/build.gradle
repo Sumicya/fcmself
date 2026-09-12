@@ -40,9 +40,8 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         release {
-            // 正式发布用：R8 裁剪。signingConfig 由上面的环境变量决定——CI 注入发布密钥时签名，
-            // 本地不注入时保持 unsigned。入口类由 proguard-rules.pro 保留（LSPosed 按类名字符串加载）。
-            signingConfig signingConfigs.release
+            // 正式发布用：R8 裁剪。signingConfig 在下方按环境变量条件注入（AGP 8 不允许引用空 signingConfig）。
+            // 入口类由 proguard-rules.pro 保留（LSPosed 按类名字符串加载）。
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -75,6 +74,13 @@ dependencies {
     // 单元测试只覆盖不依赖 Android 的纯逻辑（参数下标解析），因此 JUnit 就够，
     // 不需要 Robolectric / androidx.test
     testImplementation 'junit:junit:4.13.2'
+}
+
+// 只有提供了发布密钥库时才给 release 挂签名（AGP 8 不允许引用空 signingConfig），
+// 否则保持 unsigned（本地开发产物不变）。
+def keystorePath = System.getenv("FCMSELF_KEYSTORE")
+if (keystorePath != null && !keystorePath.isEmpty() && file(keystorePath).exists()) {
+    android.buildTypes.release.signingConfig = android.signingConfigs.release
 }
 
 // MethodArgs.byName() 依赖真实参数名，单元测试要靠它验证兜底路径，
