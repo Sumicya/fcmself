@@ -24,8 +24,6 @@
 
 ## 行为与身份
 
-## 行为与身份
-
 - applicationId 由 `com.kooritea.fcmfix` 改为 `sumicya.fcmself`
 - 移除设置界面与白名单：所有修复对所有 FCM 目标应用始终生效，模块无启动图标、无任何配置项
 - 厂商特定修复覆盖 ColorOS / OxygenOS 与 MIUI / HyperOS
@@ -36,3 +34,10 @@
 - 健壮性小修：`MethodArgs.matches` 对负下标返回 `false`；`BroadcastFix` 挂载前增加下标非负校验
 - 新增单元测试 `ReflectTest`（反射封装），`MethodArgsTest` 补充负下标用例
 - README 精简为单页；删除与 CI 重复的 `docs/android.yml.suggested`；清理 CI 工作流顶部历史注释
+
+## 环境升级
+
+- Kotlin `2.1.20` → `2.3.21`：修正与 AGP 8.13 的官方兼容性匹配（Kotlin 2.1 官方只测到 AGP 8.7.2，2.3 才是 AGP 8.13 的配套版本）
+- libxposed `api:101.0.1` → `102.0.0`：与 `module.prop` 里声明的 `targetApiVersion=102` 对齐（纯增量，`minApiVersion=101` 不变）
+- `targetSdkVersion` `34` → `36`：与 `compileSdkVersion 36` 对齐
+- 修复 CHANGELOG 里重复的「行为与身份」小节标题
