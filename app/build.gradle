@@ -9,8 +9,8 @@ android {
         applicationId "sumicya.fcmself"
         minSdkVersion 29
         targetSdkVersion 34
-        versionCode 54
-        versionName "dev"
+        versionCode 55
+        versionName "0.8.0"
     }
 
     // 发布签名：从环境变量读取（CI 通过 secrets 注入，本地不设则保持未签名）。
