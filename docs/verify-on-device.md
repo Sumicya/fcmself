@@ -48,6 +48,7 @@ adb logcat -s FcmSelf
 启动后应看到（`BroadcastFix` 在 system_server 里打印）：
 
 ```
+[fcmself] [android]进程环境就绪（android）
 [fcmself] [android]Android API: 35
 [fcmself] [android]appOp_args_index: ...
 [fcmself] [android]intent_args_index: ...
@@ -89,7 +90,7 @@ broadcastIntentLocked hook 位置查找失败，fcmself将不会工作。
 所以这一节看的是"没有失败行"：
 
 ```
-No Such Method com.android.server.am.OplusAppStartupManager.shouldPreventSendReceiverReal
+hook skip OplusAppStartupManager#shouldPreventSendReceiverReal: class NoSuchMethodError...
 ```
 
 出现这行 = 这台设备没有该 Hook 点（非 ColorOS/OxygenOS，或版本不同），**属正常**，
@@ -99,7 +100,7 @@ MIUI / HyperOS 的自启动 Hook 点已恢复支持。对应日志：
 `Allow Auto Start`（MIUI 12/13）、`checkApplicationAutoStart` / `checkReceiverIfRestricted`
 （HyperOS）、`AutoStartManagerServiceStubImpl.isAllowStartService`、
 `SmartPowerService.shouldInterceptBroadcast`、`Disable MIUI Intercept`。
-小米设备上未出现失败行（`No Such ...`）且第 2 节通知正常弹出，即视为生效。
+小米设备上未出现失败行（`hook skip ...`）且第 2 节通知正常弹出，即视为生效。
 
 ## 4. 通知不被自动清理
 
@@ -107,10 +108,11 @@ Hook 的是 `NotificationManagerService.cancelAllNotificationsInt`，只拦截
 `REASON_PACKAGE_CHANGED`(8) 以及 ColorOS 15 / OxygenOS 15 的 10020 / 10021 两种取消原因，
 其它原因照常放行。这项现在对所有 FCM 目标应用**始终生效**（原来由界面开关控制）。
 
-失败信号：
+失败信号（任一）：
 
 ```
-No Such Method com.android.server.notification.NotificationManagerService.cancelAllNotificationsInt
+hook skip NotificationManagerService#cancelAllNotificationsInt: ...
+cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦截通知：参数=[...]
 ```
 
 ## 5. OPPO / OnePlus（ColorOS / OxygenOS）
@@ -121,7 +123,7 @@ shouldProxy bypass: pkg=...
 unfreeze: <包名>, uid=...
 ```
 
-`hook error OplusProxy: ...` / `hook error registerGmsRestrictObserver: ...` 表示该 ColorOS
+`hook skip OplusProxyWakeLock 构造捕获: ...` / `hook skip Hans GMS 限制: ...` 表示该 ColorOS
 版本没有对应方法，其它 Hook 不受影响。
 
 ## 6. GMS 重连修复（需勾选 `com.google.android.gms`）
@@ -172,15 +174,20 @@ adb shell su -c "am force-stop com.google.android.gms"
 [fcmself] [android]cancelAllNotificationsInt hook 参数：pkg@2 reason@7（API 36）
 ```
 
-如果看到的是下面这些，说明 Android 16 改了签名，请把整段日志发回来（这属于需要适配的情况，
-不是崩溃——对应的 Hook 会被安全跳过，其它模块照常工作）：
+如果看到的是下面这些，说明该版本改了签名，请把整段日志发回来（这属于需要适配的情况，
+不是崩溃——对应的 Hook 会被安全跳过，其它模块照常工作；带「候选=」的日志请整条附上，
+里面有解析器看到的完整参数类型）：
 
 ```
-broadcastIntentLocked 参数位置无法确定（API 36，参数个数 NN）
+broadcastIntentLocked 参数位置无法确定（参数=[...]，候选=[...]，参数名兜底失败）
 broadcastIntentLocked hook 位置查找失败，fcmself将不会工作。
-cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦截通知：API 36，参数=[...]
-broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@N appOp@N   ← 兜底成功，功能仍可用
+cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦截通知：参数=[...]，预期 pkg@2(String)，reason 候选=[7, 8](int)
 ```
+
+0.9.0 起 (intent, appOp) / (pkg, reason) 下标改为「版本候选表 + 类型校验 + 参数名兜底」自适应
+解析：候选失效会自动尝试下一个乃至参数名兜底，全部失败才放弃。所以**小版本签名变化大多无需
+改代码**；只有日志出现「候选=...参数名兜底失败」时才需要把新的候选补进
+`Signatures` / `BroadcastFix.amsCandidates`。
 
 ## 7. 出问题时怎么排除
 
@@ -196,8 +203,10 @@ broadcastIntentLocked 硬编码下标失效，改用参数名定位：intent@N a
 
 ## 9. 当前验证状态
 
-环境：`versionName=20260905_20aa4fd`（libxposed 兼容层已删除的版本）、ColorOS /
-Android 16（API 36）、LSPosed 2.2.0，验证时间 2026-09-06。
+环境：0.9.0（`versionCode=56`）、OnePlus PLC110 / ColorOS（Android 16，API 36）、
+GMS 26.33.32，验证时间 2026-09-12。结果：BroadcastController 候选命中、
+cancelAllNotificationsInt pkg@2/reason@7 通过、ColorOS 三件套与 Hans 三点全绿、
+MIUI 点按预期 skip；GMS 重连修复为诊断日志，见 FCM Diagnostics / logcat。
 
 | 项目 | 状态 | 依据 |
 | --- | --- | --- |
@@ -211,7 +220,7 @@ Android 16（API 36）、LSPosed 2.2.0，验证时间 2026-09-06。
 | 60 秒日志节流 | 已验证 | `（期间另有 N 条同类日志已抑制）` |
 | 多应用生效（无白名单） | 已验证 | 同一份日志里 `fork.risin42.nagramx` 与 `com.roblox.client` 都被处理 |
 | `KeepNotification` 的实际拦截效果 | **未验证** | 拦下取消请求时不打日志，无法直接观测 |
-| `AutoStartFix` 的实际放行效果 | **未验证** | 成功时不打日志，只能由"没有 `No Such Method ...OplusAppStartupManager` 这行"推断 Hook 已装上 |
+| `AutoStartFix` 的实际放行效果 | **未验证** | 成功时不打日志，只能由"没有 `hook skip ...OplusAppStartupManager` 这行"推断 Hook 已装上 |
 | `ReconnectManagerFix` 的负倒计时重连 | **未验证** | 只确认 Hook 已装上（`timer_class` 等三行）。想验：制造心跳/重连倒计时异常，期望 `Send broadcast GCM_RECONNECT` |
 | release（R8）产物 | **未验证** | 真机一直装的是 debug-signed；release 只过了 CI 的入口类检查 |
 

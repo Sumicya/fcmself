@@ -1,0 +1,12 @@
+[versions]
+agp = "9.4.0"
+libxposed = "102.0.0"
+junit = "5.11.4"
+
+[libraries]
+libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
