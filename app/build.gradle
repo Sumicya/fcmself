@@ -13,34 +13,16 @@ android {
         versionName "0.8.0"
     }
 
-    // 发布签名：从环境变量读取（CI 通过 secrets 注入，本地不设则保持未签名）。
-    //   FCMSELF_KEYSTORE        密钥库文件路径
-    //   FCMSELF_STORE_PASSWORD  密钥库密码
-    //   FCMSELF_KEY_ALIAS       密钥别名
-    //   FCMSELF_KEY_PASSWORD    密钥密码
-    // 未设置 FCMSELF_KEYSTORE 时，release 保持 unsigned（本地开发产物不变）。
-    signingConfigs {
-        release {
-            def keystorePath = System.getenv("FCMSELF_KEYSTORE")
-            if (keystorePath != null && !keystorePath.isEmpty() && file(keystorePath).exists()) {
-                storeFile file(keystorePath)
-                storePassword System.getenv("FCMSELF_STORE_PASSWORD")
-                keyAlias System.getenv("FCMSELF_KEY_ALIAS")
-                keyPassword System.getenv("FCMSELF_KEY_PASSWORD")
-            }
-        }
-    }
-
     buildTypes {
         debug {
-            // debug 也走 R8：把没用到的那 90%+ kotlin-stdlib 裁掉，让测试包从 ~800KB 降到和 release 相当，
+            // debug 也走 R8：把没用到的那 90%+ kotlin-stdlib 裁掉，
             // 同时保持默认 debug 签名（可直接安装），不再需要手动 apksigner。
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         release {
-            // 正式发布用：R8 裁剪。signingConfig 在下方按环境变量条件注入（AGP 8 不允许引用空 signingConfig）。
+            // 正式发布用：R8 裁剪 + 未签名。
             // 入口类由 proguard-rules.pro 保留（LSPosed 按类名字符串加载）。
             minifyEnabled true
             shrinkResources true
@@ -53,38 +35,21 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
-        // MethodArgs.byName 依赖真实参数名（单元测试验证兜底路径），
-        // Kotlin 编译同样需要保留参数名
         javaParameters = true
     }
     lint {
         checkReleaseBuilds = false
     }
     testOptions {
-        // 单元测试里若碰到 android.jar 的桩方法，返回默认值而不是抛 "Stub!"
         unitTests.returnDefaultValues = true
     }
 }
 
 dependencies {
-    // 只依赖 LSPosed 的 API（编译期），运行期由框架提供；
-    // 界面与 androidx 依赖已随设置界面一起移除，APK 里只有本模块自己的类
     compileOnly 'io.github.libxposed:api:101.0.1'
-
-    // 单元测试只覆盖不依赖 Android 的纯逻辑（参数下标解析），因此 JUnit 就够，
-    // 不需要 Robolectric / androidx.test
     testImplementation 'junit:junit:4.13.2'
 }
 
-// 只有提供了发布密钥库时才给 release 挂签名（AGP 8 不允许引用空 signingConfig），
-// 否则保持 unsigned（本地开发产物不变）。
-def keystorePath = System.getenv("FCMSELF_KEYSTORE")
-if (keystorePath != null && !keystorePath.isEmpty() && file(keystorePath).exists()) {
-    android.buildTypes.release.signingConfig = android.signingConfigs.release
-}
-
-// MethodArgs.byName() 依赖真实参数名，单元测试要靠它验证兜底路径，
-// 所以编译时保留参数名（对 release 产物无副作用，只是类文件略大）
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << '-parameters'
 }
