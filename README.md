@@ -4,6 +4,8 @@
 
 一个基于 LSPosed 的 FCM/GCM 推送通知修复模块，针对国内定制 ROM 优化。纯 Hook：没有界面、没有白名单、没有任何配置项、**不写任何配置文件**——装上、勾选作用域、重启，即可对全部 FCM 目标应用生效。
 
+设计基准是**还原原生 AOSP 的推送行为**：原生系统对 FCM 推送链路上的广播（c2dm RECEIVE/REGISTRATION、Firebase MESSAGING_EVENT / INSTANCE_ID_EVENT / NEW_TOKEN）不加任何自启动与通知限制，本模块把各家 ROM 丢掉的这部分原生语义补回来。Hook 点参数下标按「版本候选表 + 签名类型校验 + 参数名兜底」自适应解析，小版本系统变化大多无需更新模块。
+
 ## 功能
 
 - **唤醒未启动的应用**：收到 FCM 消息时自动唤醒目标应用，解决 `Failed to broadcast to stopped app`
