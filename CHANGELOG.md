@@ -41,3 +41,10 @@
 - libxposed `api:101.0.1` → `102.0.0`：与 `module.prop` 里声明的 `targetApiVersion=102` 对齐（纯增量，`minApiVersion=101` 不变）
 - `targetSdkVersion` `34` → `36`：与 `compileSdkVersion 36` 对齐
 - 修复 CHANGELOG 里重复的「行为与身份」小节标题
+
+## AGP 9 升级
+
+- Android Gradle Plugin `8.13.0` → `9.0.1`，Gradle wrapper `8.13` → `9.1.0`（AGP 9.0 最低/默认 Gradle）
+- 改用 AGP 9 的 **built-in Kotlin**：删除 `apply plugin: 'kotlin-android'` 与顶层 `kotlin-gradle-plugin` classpath，Kotlin 版本改由 AGP 内置（KGP 2.2.10）管理，不再有 AGP/Kotlin 版本打架问题
+- `android.kotlinOptions{}` 迁移为顶层 `kotlin { compilerOptions{} }`；`jvmTarget` 对齐 `compileOptions` 的 17，`javaParameters` 保留（`MethodArgs` 按参数名兜底定位依赖 `-java-parameters`）
+- 顺带把误入库的 `app/FcmFuck.apk` 从 Git 索引移除（`.gitignore` 本就含 `*.apk`，文件保留在磁盘但不再跟踪）
