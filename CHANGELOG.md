@@ -24,8 +24,6 @@
 
 ## 行为与身份
 
-## 行为与身份
-
 - applicationId 由 `com.kooritea.fcmfix` 改为 `sumicya.fcmself`
 - 移除设置界面与白名单：所有修复对所有 FCM 目标应用始终生效，模块无启动图标、无任何配置项
 - 厂商特定修复覆盖 ColorOS / OxygenOS 与 MIUI / HyperOS
@@ -36,3 +34,13 @@
 - 健壮性小修：`MethodArgs.matches` 对负下标返回 `false`；`BroadcastFix` 挂载前增加下标非负校验
 - 新增单元测试 `ReflectTest`（反射封装），`MethodArgsTest` 补充负下标用例
 - README 精简为单页；删除与 CI 重复的 `docs/android.yml.suggested`；清理 CI 工作流顶部历史注释
+
+## 环境升级
+
+- Android Gradle Plugin `8.13.0` → `9.4.0`（当前最新 stable，2026-09），Gradle wrapper `8.13` → `9.6.0`（AGP 9.4 官方最低/默认）
+- 改用 AGP 9 的 **built-in Kotlin**：删除 `apply plugin: 'kotlin-android'` 与顶层 `kotlin-gradle-plugin` classpath，Kotlin 版本改由 AGP 内置管理，不再有 AGP/Kotlin 版本打架问题
+- `android.kotlinOptions{}` 迁移为顶层 `kotlin { compilerOptions{} }`；`jvmTarget` 对齐 `compileOptions` 的 17，`javaParameters` 保留（`MethodArgs` 按参数名兜底定位依赖 `-java-parameters`）
+- libxposed `api:101.0.1` → `102.0.0`：与 `module.prop` 里声明的 `targetApiVersion=102` 对齐（纯增量，`minApiVersion=101` 不变）
+- `targetSdkVersion` `34` → `36`：与 `compileSdkVersion 36` 对齐
+- 顺带把误入库的 `app/FcmFuck.apk` 从 Git 索引移除（`.gitignore` 本就含 `*.apk`，文件保留在磁盘但不再跟踪）
+- 修复 CHANGELOG 里重复的「行为与身份」小节标题

@@ -71,7 +71,7 @@ export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
 yes | sdkmanager --licenses
 sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
-# 构建（首次会下载 Gradle 8.13，约 200 MB）
+# 构建（首次会下载 Gradle 9.6.0，约 300 MB）
 cd ~
 git clone https://github.com/Sumicya/fcmself.git
 cd fcmself
