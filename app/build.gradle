@@ -13,6 +13,24 @@ android {
         versionName "dev"
     }
 
+    // 发布签名：从环境变量读取（CI 通过 secrets 注入，本地不设则保持未签名）。
+    //   FCMSELF_KEYSTORE        密钥库文件路径
+    //   FCMSELF_STORE_PASSWORD  密钥库密码
+    //   FCMSELF_KEY_ALIAS       密钥别名
+    //   FCMSELF_KEY_PASSWORD    密钥密码
+    // 未设置 FCMSELF_KEYSTORE 时，release 保持 unsigned（本地开发产物不变）。
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv("FCMSELF_KEYSTORE")
+            if (keystorePath != null && !keystorePath.isEmpty()) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("FCMSELF_STORE_PASSWORD")
+                keyAlias System.getenv("FCMSELF_KEY_ALIAS")
+                keyPassword System.getenv("FCMSELF_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // debug 也走 R8：把没用到的那 90%+ kotlin-stdlib 裁掉，让测试包从 ~800KB 降到和 release 相当，
@@ -22,8 +40,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         release {
-            // 正式发布用：R8 裁剪 + 未签名，需要时再本地签。
-            // 入口类由 proguard-rules.pro 保留（LSPosed 按类名字符串加载）。
+            // 正式发布用：R8 裁剪。signingConfig 由上面的环境变量决定——CI 注入发布密钥时签名，
+            // 本地不注入时保持 unsigned。入口类由 proguard-rules.pro 保留（LSPosed 按类名字符串加载）。
+            signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
