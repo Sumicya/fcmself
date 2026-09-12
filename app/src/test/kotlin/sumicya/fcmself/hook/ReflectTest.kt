@@ -240,9 +240,12 @@ class ReflectTest {
 
         companion object {
             // @JvmField / @JvmStatic 让这些成员以真正 static 的形式落在 Sample 上，
-            // 供 Reflect 通过 getStaticObjectField / callStaticMethod 反射访问
+            // 供 Reflect 通过 get/setStaticObjectField / callStaticMethod 反射访问
             @JvmField
             val STATIC_TAG = "tag"
+
+            @JvmField
+            var MUTABLE_TAG = "init"
 
             @Suppress("unused")
             @JvmStatic

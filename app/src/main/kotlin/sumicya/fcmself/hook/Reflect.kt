@@ -114,6 +114,15 @@ object Reflect {
     /** 读静态字段。 */
     fun getStaticObjectField(clazz: Class<*>, fieldName: String): Any? = readField(clazz, fieldName) { it.get(null) }
 
+    /** 写静态字段（沿继承链向上找）；找不到抛 [NoSuchFieldError]。 */
+    fun setStaticObjectField(clazz: Class<*>, fieldName: String, value: Any?) {
+        try {
+            findField(clazz, fieldName).set(null, value)
+        } catch (e: IllegalAccessException) {
+            throw RuntimeException(e)
+        }
+    }
+
     /** 按 a.b.c 形式逐层读字段；任何一层失败都抛带完整路径的 [NoSuchFieldError]。 */
     fun getObjectFieldByPath(obj: Any, pathFieldName: String): Any? {
         var current: Any? = obj

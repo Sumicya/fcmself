@@ -6,6 +6,8 @@ import android.os.WorkSource
 
 import io.github.libxposed.api.XposedInterface
 
+import java.util.concurrent.ConcurrentHashMap
+
 import sumicya.fcmself.FcmselfModule
 import sumicya.fcmself.ProcessEnv
 import sumicya.fcmself.core.FcmselfLog
