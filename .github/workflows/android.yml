@@ -42,17 +42,14 @@ jobs:
       run: echo "VERSION_NAME=$(date "+%Y%m%d")_$(echo ${{ github.sha }} | head -c 7)" >> $GITHUB_ENV
 
     - name: Retrieve version code
-      run: echo "VERSION_CODE=$(cat ${{ github.workspace }}/app/build.gradle | grep "versionCode" | grep -Eo "[0-9]+")" >> $GITHUB_ENV
-
-    - name: Set version name
-      run: sed -i "s/versionName \".*\"/versionName \"${{ env.VERSION_NAME }}\"/" ${{ github.workspace }}/app/build.gradle
+      run: echo "VERSION_CODE=$(cat ${{ github.workspace }}/app/build.gradle.kts | grep "versionCode" | grep -Eo "[0-9]+")" >> $GITHUB_ENV
 
     - name: Build with Gradle
       shell: bash
       run: |
         set -o pipefail
         # test 放在最前：参数下标解析的单元测试不通过就不必继续构建
-        ./gradlew test assembleRelease assembleDebug 2>&1 | tee build.log
+        ./gradlew -Pfcmself.versionName="${{ env.VERSION_NAME }}" test assembleRelease assembleDebug 2>&1 | tee build.log
 
     - name: Rename artifacts
       shell: bash
