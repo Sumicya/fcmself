@@ -1,11 +1,12 @@
-package sumicya.fcmself.util
+package sumicya.fcmself.hook
 
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
 import java.lang.reflect.Method
 import java.lang.reflect.Parameter
 
@@ -28,7 +29,7 @@ class MethodArgsTest {
     /** 模拟 Android 15/16 的 cancelAllNotificationsInt：pkg@2(String) / reason@7(int)。 */
     private fun notificationSignature(): Array<Class<*>> = arrayOf(
         INT_TYPE, INT_TYPE, STRING_TYPE, INT_TYPE, BOOLEAN_TYPE,
-        INT_TYPE, INT_TYPE, INT_TYPE, INT_TYPE
+        INT_TYPE, INT_TYPE, INT_TYPE, INT_TYPE,
     )
 
     @Test
@@ -76,7 +77,7 @@ class MethodArgsTest {
 
     @Test
     fun matches_rejectsWhenAppOpSlotIsNotInt() {
-        // 这正是原先只检查"第 13 个参数是 int"时可能漏掉的情况：签名一变就命中错误的参数
+        // 这正是原先只检查「第 13 个参数是 int」时可能漏掉的情况：签名一变就命中错误的参数
         val types = Array<Class<*>>(20) { Any::class.java }
         types[3] = FakeIntent::class.java
         types[13] = LONG_TYPE
@@ -100,7 +101,7 @@ class MethodArgsTest {
 
     @Test
     fun byName_findsIntentAndAppOpWhenParameterNamesAreRetained() {
-        // 本模块以 -parameters / javaParameters 编译（见 build.gradle），所以这里能拿到真实参数名。
+        // 本模块以 -parameters / javaParameters 编译（见 build 脚本），所以这里能拿到真实参数名。
         // 注意 Android framework 通常没有保留参数名，真机上这条兜底路径多数会返回 null。
         val params = method("broadcastIntentLocked").parameters
         assertArrayEquals(intArrayOf(1, 4), MethodArgs.byName(params, String::class.java))

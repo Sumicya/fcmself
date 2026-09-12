@@ -1,20 +1,16 @@
-package sumicya.fcmself.util
+package sumicya.fcmself.hook
 
 import java.lang.reflect.Parameter
 
 /**
  * 按方法签名解析参数下标的纯 Kotlin 工具（不依赖 Android，便于单元测试）。
  *
- * 本模块多个 Hook 点的参数下标是按系统版本硬编码的，而 ROM 或新版本系统可能改变签名，
- * 因此挂载前一律先用这里的方法按真实签名校验：不符就跳过该 Hook，绝不在宿主进程里
- * 抛 ClassCastException 或误改参数。
+ * Hook 点的参数下标随 ROM / 系统版本漂移，因此挂载前一律先用这里的方法按真实
+ * 签名校验：不符就跳过该 Hook，绝不在宿主进程里抛 ClassCastException 或误改参数。
  */
 object MethodArgs {
 
-    /**
-     * 校验 (stringIndex, intIndex) 是否与真实签名相符。
-     * KeepNotification 用它确认 cancelAllNotificationsInt 的 (pkg, reason) 两个下标。
-     */
+    /** 校验 (stringIndex, intIndex) 是否与真实签名相符。 */
     @JvmStatic
     fun matches(paramTypes: Array<Class<*>>, stringIndex: Int, intIndex: Int): Boolean {
         if (stringIndex < 0 || intIndex < 0) return false
@@ -36,14 +32,10 @@ object MethodArgs {
 
     /** 返回 candidates 中第一个 int 类型参数的下标，都没有（或越界）则返回 -1。 */
     @JvmStatic
-    fun firstIntIndex(parameters: Array<Parameter>, vararg candidates: Int): Int {
-        for (i in candidates) {
-            if (i >= 0 && i < parameters.size && parameters[i].type === Int::class.javaPrimitiveType) {
-                return i
-            }
-        }
-        return -1
-    }
+    fun firstIntIndex(parameters: Array<Parameter>, vararg candidates: Int): Int =
+        candidates.firstOrNull { i ->
+            i in parameters.indices && parameters[i].type === Int::class.javaPrimitiveType
+        } ?: -1
 
     /**
      * 按参数名查找 (intent, appOp) 下标。
@@ -56,11 +48,11 @@ object MethodArgs {
      */
     @JvmStatic
     fun byName(parameters: Array<Parameter>, intentType: Class<*>): IntArray? {
-        var intentIndex = -1
-        var appOpIndex = -1
-        for (i in parameters.indices) {
-            if (parameters[i].name == "intent" && parameters[i].type === intentType) intentIndex = i
-            if (parameters[i].name == "appOp" && parameters[i].type === Int::class.javaPrimitiveType) appOpIndex = i
+        val intentIndex = parameters.indexOfFirst {
+            it.name == "intent" && it.type === intentType
+        }
+        val appOpIndex = parameters.indexOfFirst {
+            it.name == "appOp" && it.type === Int::class.javaPrimitiveType
         }
         return if (intentIndex < 0 || appOpIndex < 0) null else intArrayOf(intentIndex, appOpIndex)
     }

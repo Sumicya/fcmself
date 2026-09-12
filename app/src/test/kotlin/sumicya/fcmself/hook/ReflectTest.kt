@@ -1,11 +1,12 @@
-package sumicya.fcmself.util
+package sumicya.fcmself.hook
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
-import org.junit.Assert.fail
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.fail
+import org.junit.jupiter.api.Test
+
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 
@@ -84,13 +85,42 @@ class ReflectTest {
         assertNull(Reflect.findMethodMostParams(javaClass.classLoader, "sumicya.fcmself.Nope", "nope"))
     }
 
+    // ---- 构造器 ----------------------------------------------------------
+
     @Test
     fun findConstructorMostMatch_returnsConstructorWithMostMatchedPrefix() {
         val constructor: Constructor<*> = Reflect.findConstructorMostMatch(
             Sample::class.java, String::class.java,
-            Int::class.javaPrimitiveType!!, Long::class.javaPrimitiveType!!)
+            Int::class.javaPrimitiveType!!, Long::class.javaPrimitiveType!!,
+        )
         assertEquals(3, constructor.parameterTypes.size)
     }
+
+    @Test
+    fun findConstructorMostMatch_allowsTailGrownSignature() {
+        // ROM 往构造器尾部加参数的场景：给定的前缀同时命中 2 参与加参后的 3 参构造器，取匹配更长的那个
+        val constructor = Reflect.findConstructorMostMatch(Sample::class.java, String::class.java, Int::class.javaPrimitiveType!!)
+        assertEquals(3, constructor.parameterTypes.size)
+    }
+
+    @Test
+    fun findConstructorMostMatch_throwsWhenNoPrefixMatches() {
+        // 旧实现在零匹配时静默返回最后一个构造器；现在必须显式失败
+        try {
+            Reflect.findConstructorMostMatch(Sample::class.java, Boolean::class.javaPrimitiveType!!)
+            fail("应当抛出 NoSuchMethodError")
+        } catch (expected: NoSuchMethodError) {
+            // 预期
+        }
+    }
+
+    @Test
+    fun findConstructorMostParams_returnsTheWidestConstructor() {
+        val constructor = Reflect.findConstructorMostParams(Sample::class.java)
+        assertEquals(3, constructor.parameterTypes.size)
+    }
+
+    // ---- 字段 ------------------------------------------------------------
 
     @Test
     fun getObjectField_readsPrivateField() {
@@ -134,6 +164,8 @@ class ReflectTest {
         }
     }
 
+    // ---- 调用 ------------------------------------------------------------
+
     @Test
     fun callMethod_invokesWithPrimitiveArgs() {
         assertEquals(5, Reflect.callMethod(Sample(), "add", 2, 3))
@@ -153,7 +185,7 @@ class ReflectTest {
     fun callStaticMethod_usesExplicitParameterTypes() {
         assertEquals(
             42,
-            Reflect.callStaticMethod(Sample::class.java, "twice", arrayOf(Int::class.javaPrimitiveType), 21)
+            Reflect.callStaticMethod(Sample::class.java, "twice", arrayOf(Int::class.javaPrimitiveType), 21),
         )
     }
 
