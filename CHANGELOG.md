@@ -65,6 +65,15 @@
   跳过原因统一为 `hook skip <点>: <原因>` 可排查格式；`PowerkeeperFix` 的类缺失不再误报为方法缺失
 - `PowerkeeperFix.whiteApps` 的 GMS 移除**保留旧版行为**，但注释明确标注该列表语义未证实
   （若实为「允许后台的白名单」，此操作反而收紧）——待真机核实后再定
+- proguard：保留 `Reflect.ClassNotFound` 类名（R8 混淆后 hook skip 日志显示为「q1:」，可读性差）
+
+### 真机验证（2026-09-12）
+
+- OnePlus PLC110 / ColorOS（Android 16，API 36）/ GMS 26.33.32：
+  - `BroadcastController.broadcastIntentLocked` 候选 (intent@3, appOp@13) 命中，force-stop 后推送成功唤醒
+  - `cancelAllNotificationsInt` 签名校验通过（pkg@2 / reason@7）
+  - ColorOS 链路全绿：OplusProxyWakeLock 捕获、shouldProxy bypass（节流生效）、unfreeze、Hans 三点 hooked
+  - MIUI / HyperOS 各点在非 MIUI 设备按预期 skip；`Boot Complete` 闸门准时（就绪 +60s）
 
 ### 环境升级
 

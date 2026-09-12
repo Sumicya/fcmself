@@ -203,8 +203,10 @@ cancelAllNotificationsInt 签名与预期不符，已跳过该 Hook 以免误拦
 
 ## 9. 当前验证状态
 
-环境：`versionName=20260905_20aa4fd`（libxposed 兼容层已删除的版本）、ColorOS /
-Android 16（API 36）、LSPosed 2.2.0，验证时间 2026-09-06。
+环境：0.9.0（`versionCode=56`）、OnePlus PLC110 / ColorOS（Android 16，API 36）、
+GMS 26.33.32，验证时间 2026-09-12。结果：BroadcastController 候选命中、
+cancelAllNotificationsInt pkg@2/reason@7 通过、ColorOS 三件套与 Hans 三点全绿、
+MIUI 点按预期 skip；GMS 重连修复为诊断日志，见 FCM Diagnostics / logcat。
 
 | 项目 | 状态 | 依据 |
 | --- | --- | --- |
