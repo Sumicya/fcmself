@@ -22,7 +22,7 @@ android {
     signingConfigs {
         release {
             def keystorePath = System.getenv("FCMSELF_KEYSTORE")
-            if (keystorePath != null && !keystorePath.isEmpty()) {
+            if (keystorePath != null && !keystorePath.isEmpty() && file(keystorePath).exists()) {
                 storeFile file(keystorePath)
                 storePassword System.getenv("FCMSELF_STORE_PASSWORD")
                 keyAlias System.getenv("FCMSELF_KEY_ALIAS")
